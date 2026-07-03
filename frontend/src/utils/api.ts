@@ -174,6 +174,41 @@ export const markNotificationRead = async (notificationId: string) => {
   return response.data;
 };
 
+// Kudos
+export const getKudos = async () => {
+  const response = await api.get('/kudos');
+  return response.data;
+};
+
+export const createKudo = async (kudoData: any) => {
+  const response = await api.post('/kudos', kudoData);
+  return response.data;
+};
+
+export const getUserKudos = async (userId: string) => {
+  const response = await api.get(`/kudos/user/${userId}`);
+  return response.data;
+};
+
+export const getKudosLeaderboard = async () => {
+  const response = await api.get('/kudos/leaderboard');
+  return response.data;
+};
+
+// Reports
+export const getStats = async () => {
+  const response = await api.get('/reports/stats');
+  return response.data;
+};
+
+// Profile Photo
+export const updateProfilePhoto = async (userId: string, photoBase64: string) => {
+  const response = await api.put(`/users/${userId}/photo`, {
+    profile_photo: photoBase64,
+  });
+  return response.data;
+};
+
 // Seed
 export const seedDatabase = async () => {
   const response = await api.post('/seed');

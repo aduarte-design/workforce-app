@@ -13,12 +13,12 @@ export default function TabsLayout() {
           backgroundColor: '#fff',
           borderTopWidth: 1,
           borderTopColor: '#e0e0e0',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 62,
+          paddingBottom: 6,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '500',
         },
       }}
@@ -28,25 +28,34 @@ export default function TabsLayout() {
         options={{
           title: 'Inicio',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+            <Ionicons name="home" size={22} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="kudos"
+        options={{
+          title: 'Kudos',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="heart" size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="solicitudes"
         options={{
-          title: 'Solicitudes',
+          title: 'Permisos',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text" size={size} color={color} />
+            <Ionicons name="document-text" size={22} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="calendario"
         options={{
-          title: 'Calendario',
+          title: 'Eventos',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar" size={size} color={color} />
+            <Ionicons name="calendar" size={22} color={color} />
           ),
         }}
       />
@@ -55,7 +64,7 @@ export default function TabsLayout() {
         options={{
           title: 'Metas',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart" size={size} color={color} />
+            <Ionicons name="stats-chart" size={22} color={color} />
           ),
         }}
       />
@@ -64,7 +73,7 @@ export default function TabsLayout() {
         options={{
           title: 'Cápsulas',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bulb" size={size} color={color} />
+            <Ionicons name="bulb" size={22} color={color} />
           ),
         }}
       />

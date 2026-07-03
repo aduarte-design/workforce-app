@@ -23,7 +23,6 @@ import {
 export default function HomeScreen() {
   const { user, logout, isAdmin } = useAuth();
   const router = useRouter();
-  
   const [absentEmployees, setAbsentEmployees] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any>({ today: [], upcoming: [] });
   const [employeeOfMonth, setEmployeeOfMonth] = useState<any>(null);
@@ -127,19 +126,40 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0]}</Text>
-          <Text style={styles.role}>{user?.position || user?.role}</Text>
+        <View style={styles.brandRow}>
+          <Image
+            source={require('@/assets/images/conactivos-logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <View style={styles.brandTextContainer}>
+            <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0]}</Text>
+            <Text style={styles.role}>{user?.position || user?.role}</Text>
+          </View>
         </View>
         <View style={styles.headerActions}>
+          {isAdmin && (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => router.push('/reportes' as any)}
+              testID="reports-btn"
+            >
+              <Ionicons name="analytics" size={22} color="#122c2a" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => router.push('/empleados' as any)}
+            testID="employees-btn"
           >
-            <Ionicons name="people" size={24} color="#122c2a" />
+            <Ionicons name="people" size={22} color="#122c2a" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#122c2a" />
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push('/perfil' as any)}
+            testID="profile-btn"
+          >
+            <Ionicons name="person-circle" size={22} color="#122c2a" />
           </TouchableOpacity>
         </View>
       </View>
@@ -259,24 +279,37 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  logo: {
+    width: 44,
+    height: 44,
+    marginRight: 10,
+  },
+  brandTextContainer: {
+    flex: 1,
+  },
   greeting: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#122c2a',
   },
   role: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',

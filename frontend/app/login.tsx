@@ -10,6 +10,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -54,7 +55,11 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Ionicons name="briefcase" size={60} color="#122c2a" />
+              <Image
+                source={require('@/assets/images/conactivos-logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.title}>Conactivos</Text>
             <Text style={styles.subtitle}>Recursos Humanos</Text>
@@ -140,13 +145,19 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#b68a2e',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#122c2a',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    padding: 16,
+  },
+  logoImage: {
+    width: 100,
+    height: 100,
+    tintColor: '#b68a2e',
   },
   title: {
     fontSize: 32,

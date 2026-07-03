@@ -168,6 +168,24 @@ class CapsuleCreate(BaseModel):
     responsible_employee_id: str
     description: Optional[str] = None
 
+class Kudo(BaseModel):
+    id: Optional[str] = Field(default=None, alias="_id")
+    from_user_id: str
+    from_user_name: str
+    to_user_id: str
+    to_user_name: str
+    message: str
+    category: Literal["teamwork", "innovation", "leadership", "excellence", "helpful"]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+
+class KudoCreate(BaseModel):
+    to_user_id: str
+    message: str
+    category: Literal["teamwork", "innovation", "leadership", "excellence", "helpful"]
+
 class Notification(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")
     user_id: str
@@ -721,6 +739,156 @@ async def mark_notification_read(
     
     return {"message": "Notification marked as read"}
 
+# ==================== KUDOS ROUTES ====================
+
+@api_router.get("/kudos")
+async def get_kudos(current_user: dict = Depends(get_current_user)):
+    kudos = await db.kudos.find().sort("created_at", -1).limit(100).to_list(100)
+    for kudo in kudos:
+        kudo["_id"] = str(kudo["_id"])
+    return kudos
+
+@api_router.post("/kudos")
+async def create_kudo(kudo_data: KudoCreate, current_user: dict = Depends(get_current_user)):
+    if kudo_data.to_user_id == current_user["_id"]:
+        raise HTTPException(status_code=400, detail="No puedes darte kudos a ti mismo")
+    
+    to_user = await db.users.find_one({"_id": ObjectId(kudo_data.to_user_id)})
+    if not to_user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    kudo_dict = kudo_data.dict()
+    kudo_dict["from_user_id"] = current_user["_id"]
+    kudo_dict["from_user_name"] = current_user["name"]
+    kudo_dict["to_user_name"] = to_user["name"]
+    kudo_dict["created_at"] = datetime.utcnow()
+    
+    result = await db.kudos.insert_one(kudo_dict)
+    
+    # Notify recipient
+    notification = {
+        "user_id": kudo_data.to_user_id,
+        "title": "¡Recibiste un Kudo!",
+        "message": f"{current_user['name']} te ha dado un kudo: {kudo_data.message[:50]}",
+        "type": "kudo",
+        "read": False,
+        "created_at": datetime.utcnow()
+    }
+    await db.notifications.insert_one(notification)
+    
+    kudo_dict["_id"] = str(result.inserted_id)
+    return kudo_dict
+
+@api_router.get("/kudos/user/{user_id}")
+async def get_user_kudos(user_id: str, current_user: dict = Depends(get_current_user)):
+    """Get all kudos received by a user"""
+    kudos = await db.kudos.find({"to_user_id": user_id}).sort("created_at", -1).to_list(100)
+    for kudo in kudos:
+        kudo["_id"] = str(kudo["_id"])
+    return kudos
+
+@api_router.get("/kudos/leaderboard")
+async def get_kudos_leaderboard(current_user: dict = Depends(get_current_user)):
+    """Get top employees by kudos count"""
+    pipeline = [
+        {"$group": {
+            "_id": "$to_user_id",
+            "to_user_name": {"$first": "$to_user_name"},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    
+    leaderboard = await db.kudos.aggregate(pipeline).to_list(10)
+    
+    # Add user info
+    for entry in leaderboard:
+        user = await db.users.find_one({"_id": ObjectId(entry["_id"])})
+        if user:
+            entry["position"] = user.get("position", "")
+            entry["profile_photo"] = user.get("profile_photo")
+    
+    return leaderboard
+
+# ==================== REPORTS ROUTES ====================
+
+@api_router.get("/reports/stats")
+async def get_stats(current_user: dict = Depends(require_admin)):
+    """Get overall statistics for admin dashboard"""
+    total_employees = await db.users.count_documents({"role": "employee"})
+    total_admins = await db.users.count_documents({"role": "admin"})
+    
+    # Leave requests stats
+    total_leaves = await db.leave_requests.count_documents({})
+    pending_leaves = await db.leave_requests.count_documents({"status": "pending"})
+    approved_leaves = await db.leave_requests.count_documents({"status": "approved"})
+    rejected_leaves = await db.leave_requests.count_documents({"status": "rejected"})
+    
+    # By type
+    vacation_count = await db.leave_requests.count_documents({"type": "vacation"})
+    medical_count = await db.leave_requests.count_documents({"type": "medical"})
+    normal_count = await db.leave_requests.count_documents({"type": "normal"})
+    
+    # Kudos stats
+    total_kudos = await db.kudos.count_documents({})
+    
+    # This month's leaves
+    today = datetime.utcnow()
+    first_day = datetime(today.year, today.month, 1).isoformat()
+    month_leaves = await db.leave_requests.count_documents({
+        "created_at": {"$gte": datetime(today.year, today.month, 1)}
+    })
+    
+    return {
+        "employees": {
+            "total": total_employees,
+            "admins": total_admins,
+        },
+        "leaves": {
+            "total": total_leaves,
+            "pending": pending_leaves,
+            "approved": approved_leaves,
+            "rejected": rejected_leaves,
+            "this_month": month_leaves,
+            "by_type": {
+                "vacation": vacation_count,
+                "medical": medical_count,
+                "normal": normal_count
+            }
+        },
+        "kudos": {
+            "total": total_kudos
+        }
+    }
+
+# ==================== USER PHOTO ====================
+
+class ProfilePhotoUpdate(BaseModel):
+    profile_photo: str  # base64
+
+@api_router.put("/users/{user_id}/photo")
+async def update_profile_photo(
+    user_id: str,
+    photo_data: ProfilePhotoUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user["role"] != "admin" and current_user["_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="Invalid user ID")
+    
+    result = await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"profile_photo": photo_data.profile_photo}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "Profile photo updated"}
+
 # ==================== SEED DATA ====================
 
 @api_router.post("/seed")
@@ -734,6 +902,7 @@ async def seed_database():
     await db.commercial_goals.delete_many({})
     await db.capsules.delete_many({})
     await db.notifications.delete_many({})
+    await db.kudos.delete_many({})
     
     # Create admins
     admin_password = hash_password("admin123")
@@ -1016,6 +1185,66 @@ async def seed_database():
     ]
     
     await db.capsules.insert_many(capsules)
+    
+    # Create kudos
+    kudos = [
+        {
+            "from_user_id": employee_ids[1],
+            "from_user_name": "Laura Gómez",
+            "to_user_id": employee_ids[0],
+            "to_user_name": "Juan Pérez",
+            "message": "Gracias por tu apoyo en el proyecto de rediseño. Tu experiencia técnica hizo la diferencia.",
+            "category": "teamwork",
+            "created_at": datetime.utcnow() - timedelta(days=1)
+        },
+        {
+            "from_user_id": admin_ids[0],
+            "from_user_name": "María García",
+            "to_user_id": employee_ids[0],
+            "to_user_name": "Juan Pérez",
+            "message": "Excelente presentación al cliente. Muy profesional.",
+            "category": "excellence",
+            "created_at": datetime.utcnow() - timedelta(days=2)
+        },
+        {
+            "from_user_id": employee_ids[4],
+            "from_user_name": "Miguel Torres",
+            "to_user_id": employee_ids[3],
+            "to_user_name": "Sofía López",
+            "message": "Cerraste ese negocio complejo increíble. ¡Felicidades!",
+            "category": "excellence",
+            "created_at": datetime.utcnow() - timedelta(days=3)
+        },
+        {
+            "from_user_id": employee_ids[2],
+            "from_user_name": "Pedro Sánchez",
+            "to_user_id": employee_ids[6],
+            "to_user_name": "Roberto Morales",
+            "message": "Tu propuesta de arquitectura fue innovadora. Gran trabajo.",
+            "category": "innovation",
+            "created_at": datetime.utcnow() - timedelta(days=4)
+        },
+        {
+            "from_user_id": employee_ids[7],
+            "from_user_name": "Isabel Fernández",
+            "to_user_id": employee_ids[9],
+            "to_user_name": "Paula Castro",
+            "message": "Gracias por ayudarme con los reportes. Muy amable.",
+            "category": "helpful",
+            "created_at": datetime.utcnow() - timedelta(days=5)
+        },
+        {
+            "from_user_id": employee_ids[5],
+            "from_user_name": "Carmen Díaz",
+            "to_user_id": employee_ids[0],
+            "to_user_name": "Juan Pérez",
+            "message": "Lideraste el sprint con excelente comunicación.",
+            "category": "leadership",
+            "created_at": datetime.utcnow() - timedelta(days=6)
+        }
+    ]
+    
+    await db.kudos.insert_many(kudos)
     
     return {
         "message": "Database seeded successfully",

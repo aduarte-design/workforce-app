@@ -135,7 +135,7 @@ export default function KudosScreen() {
           onPress={handleOpenModal}
           testID="send-kudo-btn"
         >
-          <Ionicons name="add" size={24} color="#fff" />
+          <Ionicons name="add" size={24} color="#122c2a" />
         </TouchableOpacity>
       </View>
 
@@ -161,6 +161,7 @@ export default function KudosScreen() {
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {activeTab === 'feed' ? (
@@ -354,21 +355,21 @@ export default function KudosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f5f7',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#f5f5f7',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 34,
+    fontWeight: '800',
     color: '#122c2a',
+    letterSpacing: -1,
   },
   headerSubtitle: {
     fontSize: 13,
@@ -379,38 +380,42 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#122c2a',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   tabsContainer: {
     flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 4,
+    borderRadius: 12,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   tab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRadius: 8,
   },
   tabActive: {
-    borderBottomColor: '#122c2a',
+    backgroundColor: '#122c2a',
   },
   tabText: {
-    fontSize: 14,
-    color: '#999',
-    fontWeight: '500',
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '600',
   },
   tabTextActive: {
-    color: '#122c2a',
-    fontWeight: '600',
+    color: '#fff',
   },
   content: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 20,
   },
   emptyContainer: {
     flex: 1,

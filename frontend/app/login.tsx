@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 export default function LoginScreen() {
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -43,145 +45,318 @@ export default function LoginScreen() {
     }
   };
 
+  const features = [
+    { icon: 'document-text', label: 'Solicita\npermisos', color: '#b68a2e' },
+    { icon: 'heart', label: 'Reconoce\ncompañeros', color: '#ef4444' },
+    { icon: 'calendar', label: 'Gestiona\ntu tiempo', color: '#122c2a' },
+  ];
+
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        <ScrollView
+    <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <ScrollView 
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+          bounces={false}
         >
-          <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={require('@/assets/images/conactivos-logo.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={styles.title}>Conactivos</Text>
-            <Text style={styles.subtitle}>Recursos Humanos</Text>
+          {/* Logo Header */}
+          <View style={styles.logoRow}>
+            <Image
+              source={require('@/assets/images/conactivos-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.brandName}>conactivos</Text>
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Correo corporativo"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                editable={!isLoading}
-              />
-            </View>
+          {/* Big Welcome Title */}
+          <View style={styles.welcomeContainer}>
+            <Text style={styles.welcomeText}>Bien</Text>
+            <Text style={styles.welcomeText}>venido</Text>
+          </View>
 
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Contraseña"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                editable={!isLoading}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                  size={20}
-                  color="#666"
-                />
+          {/* Central Illustration */}
+          <View style={styles.illustrationContainer}>
+            <View style={styles.illustrationBg}>
+              <Ionicons name="people" size={100} color="#fff" />
+            </View>
+            <Text style={styles.tagline}>Recursos Humanos</Text>
+          </View>
+
+          {/* Feature Cards */}
+          <View style={styles.featuresRow}>
+            {features.map((feature, index) => (
+              <View key={index} style={styles.featureCard}>
+                <View style={[styles.featureIcon, { backgroundColor: feature.color + '20' }]}>
+                  <Ionicons name={feature.icon as any} size={26} color={feature.color} />
+                </View>
+                <Text style={styles.featureLabel}>{feature.label}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Bottom Buttons */}
+        <View style={styles.bottomContainer}>
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={() => setShowLoginModal(true)}
+            testID="open-login-btn"
+          >
+            <Text style={styles.loginButtonText}>Iniciar sesión</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+
+      {/* Login Modal */}
+      <Modal
+        visible={showLoginModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowLoginModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Iniciar Sesión</Text>
+              <TouchableOpacity onPress={() => setShowLoginModal(false)}>
+                <Ionicons name="close" size={24} color="#122c2a" />
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-              onPress={handleLogin}
-              disabled={isLoading}
+            <ScrollView
+              contentContainerStyle={styles.modalScrollContent}
+              keyboardShouldPersistTaps="handled"
             >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-              )}
-            </TouchableOpacity>
+              <Text style={styles.inputLabel}>Correo corporativo</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="tu@conactivos.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  editable={!isLoading}
+                  testID="email-input"
+                />
+              </View>
 
-            <View style={styles.testCredentials}>
-              <Text style={styles.testTitle}>Credenciales de prueba:</Text>
-              <Text style={styles.testText}>Admin: admin1@conactivos.com / admin123</Text>
-              <Text style={styles.testText}>Empleado: juan.perez@conactivos.com / employee123</Text>
-            </View>
+              <Text style={styles.inputLabel}>Contraseña</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="••••••••"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                  testID="password-input"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons
+                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={20}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+                onPress={handleLogin}
+                disabled={isLoading}
+                testID="submit-login-btn"
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Ingresar</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.testCredentials}>
+                <Text style={styles.testTitle}>Credenciales de prueba:</Text>
+                <Text style={styles.testText}>👤 Admin: admin1@conactivos.com / admin123</Text>
+                <Text style={styles.testText}>👤 Empleado: juan.perez@conactivos.com / employee123</Text>
+              </View>
+            </ScrollView>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#b68a2e',
   },
-  keyboardView: {
+  safeArea: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
   },
-  header: {
+  logoRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 48,
-  },
-  logoContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#122c2a',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    padding: 16,
+    marginTop: 16,
+    gap: 10,
   },
-  logoImage: {
-    width: 100,
-    height: 100,
-    tintColor: '#b68a2e',
+  logo: {
+    width: 40,
+    height: 40,
+    tintColor: '#fff',
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#122c2a',
+  brandName: {
+    fontSize: 26,
+    fontWeight: '600',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  welcomeContainer: {
+    marginTop: 24,
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
+  welcomeText: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#fff',
+    lineHeight: 78,
+    letterSpacing: -2,
   },
-  form: {
-    width: '100%',
+  illustrationContainer: {
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  illustrationBg: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  tagline: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 16,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  featuresRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 24,
+  },
+  featureCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+    minHeight: 110,
+  },
+  featureIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  featureLabel: {
+    fontSize: 13,
+    color: '#122c2a',
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  bottomContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    paddingTop: 8,
+  },
+  loginButton: {
+    backgroundColor: '#fff',
+    borderRadius: 100,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginButtonText: {
+    color: '#122c2a',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '90%',
+    paddingBottom: 20,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#122c2a',
+  },
+  modalScrollContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    marginTop: 16,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 14,
     paddingHorizontal: 16,
     height: 56,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
   inputIcon: {
     marginRight: 12,
@@ -189,37 +364,37 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#333',
+    color: '#122c2a',
   },
   eyeIcon: {
     padding: 4,
   },
-  loginButton: {
+  submitButton: {
     backgroundColor: '#122c2a',
-    borderRadius: 12,
+    borderRadius: 100,
     height: 56,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 24,
   },
-  loginButtonDisabled: {
+  submitButtonDisabled: {
     opacity: 0.6,
   },
-  loginButtonText: {
+  submitButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
   testCredentials: {
-    marginTop: 32,
+    marginTop: 24,
     padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
   testTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#122c2a',
     marginBottom: 8,

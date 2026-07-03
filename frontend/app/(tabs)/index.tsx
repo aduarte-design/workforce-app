@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getAbsentEmployees,
@@ -21,13 +22,13 @@ import {
 } from '@/src/utils/api';
 
 export default function HomeScreen() {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const router = useRouter();
+  
   const [absentEmployees, setAbsentEmployees] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any>({ today: [], upcoming: [] });
   const [employeeOfMonth, setEmployeeOfMonth] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadDashboardData();
@@ -35,7 +36,6 @@ export default function HomeScreen() {
 
   const loadDashboardData = async () => {
     try {
-      setIsLoading(true);
       const [absent, birthdayData, employee] = await Promise.all([
         getAbsentEmployees(),
         getBirthdays(),
@@ -47,32 +47,6 @@ export default function HomeScreen() {
       setEmployeeOfMonth(employee);
     } catch (error: any) {
       console.error('Error loading dashboard:', error);
-      if (error.response?.status === 404 || error.message?.includes('404')) {
-        // Database might be empty, offer to seed
-        Alert.alert(
-          'Base de datos vacía',
-          '¿Deseas cargar datos de ejemplo?',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-              text: 'Sí, cargar datos',
-              onPress: handleSeedDatabase,
-            },
-          ]
-        );
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSeedDatabase = async () => {
-    try {
-      await seedDatabase();
-      Alert.alert('Éxito', 'Datos de ejemplo cargados correctamente');
-      loadDashboardData();
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos de ejemplo');
     }
   };
 
@@ -81,20 +55,6 @@ export default function HomeScreen() {
     await loadDashboardData();
     setRefreshing(false);
   }, []);
-
-  const handleLogout = () => {
-    Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar Sesión',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/login');
-        },
-      },
-    ]);
-  };
 
   const getTypeLabel = (type: string) => {
     switch (type) {
@@ -109,7 +69,7 @@ export default function HomeScreen() {
     }
   };
 
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = (type: string): any => {
     switch (type) {
       case 'vacation':
         return 'airplane';
@@ -122,20 +82,25 @@ export default function HomeScreen() {
     }
   };
 
+  const totalBirthdays = birthdays.today.length + birthdays.upcoming.length;
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Sticky Header */}
       <View style={styles.header}>
-        <View style={styles.brandRow}>
-          <Image
-            source={require('@/assets/images/conactivos-logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <View style={styles.brandTextContainer}>
-            <Text style={styles.greeting}>Hola, {user?.name?.split(' ')[0]}</Text>
-            <Text style={styles.role}>{user?.position || user?.role}</Text>
-          </View>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            style={styles.helpBadge}
+            onPress={() => router.push('/perfil' as any)}
+            testID="profile-btn"
+          >
+            <Image
+              source={require('@/assets/images/conactivos-logo.png')}
+              style={styles.logoIcon}
+              resizeMode="contain"
+            />
+            <Text style={styles.helpText}>{user?.name?.split(' ')[0]}</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.headerActions}>
           {isAdmin && (
@@ -154,112 +119,155 @@ export default function HomeScreen() {
           >
             <Ionicons name="people" size={22} color="#122c2a" />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => router.push('/perfil' as any)}
-            testID="profile-btn"
-          >
-            <Ionicons name="person-circle" size={22} color="#122c2a" />
-          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Employee of the Month */}
+        {/* Big Title */}
+        <Text style={styles.pageTitle}>Vista general</Text>
+
+        {/* Hero Card - Employee of the Month */}
         {employeeOfMonth && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="star" size={24} color="#b68a2e" />
-              <Text style={styles.cardTitle}>Empleado del Mes</Text>
-            </View>
-            <View style={styles.employeeOfMonth}>
-              <View style={styles.employeeAvatar}>
-                {employeeOfMonth.profile_photo ? (
-                  <Image
-                    source={{ uri: employeeOfMonth.profile_photo }}
-                    style={styles.avatarImage}
-                  />
-                ) : (
-                  <Ionicons name="person" size={40} color="#122c2a" />
-                )}
+          <TouchableOpacity style={styles.heroCardWrapper} activeOpacity={0.9}>
+            <LinearGradient
+              colors={['#1a3d3a', '#122c2a', '#0a1c1a']}
+              style={styles.heroCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.heroHeader}>
+                <View style={styles.heroLabelRow}>
+                  <Ionicons name="star" size={16} color="#b68a2e" />
+                  <Text style={styles.heroLabel}>Empleado del Mes</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
               </View>
-              <View style={styles.employeeInfo}>
-                <Text style={styles.employeeName}>{employeeOfMonth.name}</Text>
-                <Text style={styles.employeePosition}>{employeeOfMonth.position}</Text>
+
+              <View style={styles.heroContent}>
+                <View style={styles.heroAvatar}>
+                  {employeeOfMonth.profile_photo ? (
+                    <Image source={{ uri: employeeOfMonth.profile_photo }} style={styles.heroAvatarImg} />
+                  ) : (
+                    <Ionicons name="person" size={36} color="#b68a2e" />
+                  )}
+                </View>
+                <View style={styles.heroInfo}>
+                  <Text style={styles.heroName}>{employeeOfMonth.name}</Text>
+                  <Text style={styles.heroPosition}>{employeeOfMonth.position}</Text>
+                </View>
               </View>
-            </View>
+
+              <View style={styles.heroStats}>
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatNumber}>{absentEmployees.length}</Text>
+                  <Text style={styles.heroStatLabel}>Ausentes hoy</Text>
+                </View>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStat}>
+                  <Text style={styles.heroStatNumber}>{totalBirthdays}</Text>
+                  <Text style={styles.heroStatLabel}>Cumpleaños</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* Section: Ausentes */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Ausentes hoy</Text>
+        </View>
+        
+        {absentEmployees.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+            <Text style={styles.emptyCardText}>No hay ausentes hoy</Text>
+          </View>
+        ) : (
+          <View style={styles.horizontalCards}>
+            {absentEmployees.map((absent, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.absentCard,
+                  { backgroundColor: absent.type === 'medical' ? '#fee2e2' : absent.type === 'vacation' ? '#dbeafe' : '#fef3c7' }
+                ]}
+              >
+                <View
+                  style={[
+                    styles.absentIcon,
+                    { backgroundColor: absent.type === 'medical' ? '#ef4444' : absent.type === 'vacation' ? '#3b82f6' : '#b68a2e' }
+                  ]}
+                >
+                  <Ionicons name={getTypeIcon(absent.type)} size={18} color="#fff" />
+                </View>
+                <Text style={styles.absentName}>{absent.name}</Text>
+                <Text style={styles.absentType}>{getTypeLabel(absent.type)}</Text>
+                <Text style={styles.absentUntil}>Hasta {absent.until}</Text>
+              </View>
+            ))}
           </View>
         )}
 
-        {/* Absent Employees */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="person-remove" size={24} color="#122c2a" />
-            <Text style={styles.cardTitle}>Ausentes Hoy</Text>
-          </View>
-          {absentEmployees.length === 0 ? (
-            <Text style={styles.emptyText}>No hay empleados ausentes hoy</Text>
-          ) : (
-            absentEmployees.map((absent, index) => (
-              <View key={index} style={styles.listItem}>
-                <View style={styles.listItemIcon}>
-                  <Ionicons name={getTypeIcon(absent.type)} size={20} color="#122c2a" />
-                </View>
-                <View style={styles.listItemContent}>
-                  <Text style={styles.listItemTitle}>{absent.name}</Text>
-                  <Text style={styles.listItemSubtitle}>
-                    {getTypeLabel(absent.type)} • Hasta: {absent.until}
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* Birthdays Today */}
+        {/* Section: Cumpleaños de Hoy */}
         {birthdays.today.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="gift" size={24} color="#b68a2e" />
-              <Text style={styles.cardTitle}>Cumpleaños de Hoy</Text>
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🎉 Cumpleaños de hoy</Text>
             </View>
             {birthdays.today.map((person: any) => (
-              <View key={person._id} style={styles.listItem}>
-                <View style={styles.listItemIcon}>
-                  <Ionicons name="cake" size={20} color="#b68a2e" />
+              <LinearGradient
+                key={person._id}
+                colors={['#b68a2e', '#d4a444']}
+                style={styles.birthdayTodayCard}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.birthdayAvatar}>
+                  <Ionicons name="gift" size={28} color="#fff" />
                 </View>
-                <View style={styles.listItemContent}>
-                  <Text style={styles.listItemTitle}>{person.name}</Text>
-                  <Text style={styles.listItemSubtitle}>{person.position}</Text>
+                <View style={styles.birthdayInfo}>
+                  <Text style={styles.birthdayName}>{person.name}</Text>
+                  <Text style={styles.birthdayPosition}>{person.position}</Text>
                 </View>
-              </View>
+              </LinearGradient>
             ))}
-          </View>
+          </>
         )}
 
-        {/* Upcoming Birthdays */}
+        {/* Section: Próximos Cumpleaños */}
         {birthdays.upcoming.length > 0 && (
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="calendar" size={24} color="#122c2a" />
-              <Text style={styles.cardTitle}>Próximos Cumpleaños</Text>
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Próximos cumpleaños</Text>
             </View>
-            {birthdays.upcoming.slice(0, 5).map((person: any) => (
-              <View key={person._id} style={styles.listItem}>
-                <View style={styles.listItemIcon}>
-                  <Text style={styles.daysUntil}>{person.days_until}d</Text>
+            
+            <View style={styles.upcomingList}>
+              {birthdays.upcoming.slice(0, 5).map((person: any) => (
+                <View key={person._id} style={styles.upcomingItem}>
+                  <View style={styles.upcomingAvatar}>
+                    <Ionicons name="person" size={20} color="#b68a2e" />
+                  </View>
+                  <View style={styles.upcomingInfo}>
+                    <Text style={styles.upcomingName}>{person.name}</Text>
+                    <Text style={styles.upcomingPosition}>{person.position}</Text>
+                  </View>
+                  <View style={styles.upcomingDays}>
+                    <Text style={styles.upcomingDaysNumber}>{person.days_until}</Text>
+                    <Text style={styles.upcomingDaysLabel}>días</Text>
+                  </View>
                 </View>
-                <View style={styles.listItemContent}>
-                  <Text style={styles.listItemTitle}>{person.name}</Text>
-                  <Text style={styles.listItemSubtitle}>{person.position}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          </>
         )}
+
+        {/* Bottom Spacing for Tab Bar */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -268,144 +276,305 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f5f7',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#f5f5f7',
   },
-  brandRow: {
+  headerLeft: {
+    flex: 1,
+  },
+  helpBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignSelf: 'flex-start',
+    gap: 6,
   },
-  logo: {
-    width: 44,
-    height: 44,
-    marginRight: 10,
+  logoIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#122c2a',
   },
-  brandTextContainer: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  helpText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#122c2a',
-  },
-  role: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   iconButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   content: {
     flex: 1,
-    padding: 16,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+  scrollContent: {
+    paddingHorizontal: 20,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+  pageTitle: {
+    fontSize: 34,
+    fontWeight: '800',
     color: '#122c2a',
-    marginLeft: 8,
+    marginTop: 8,
+    marginBottom: 20,
+    letterSpacing: -1,
   },
-  employeeOfMonth: {
+  heroCardWrapper: {
+    marginBottom: 24,
+    borderRadius: 24,
+    overflow: 'hidden',
+  },
+  heroCard: {
+    padding: 20,
+    borderRadius: 24,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  heroLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
-  employeeAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#b68a2e',
+  heroLabel: {
+    color: '#b68a2e',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  heroAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(182, 138, 46, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 14,
+    borderWidth: 2,
+    borderColor: '#b68a2e',
   },
-  avatarImage: {
+  heroAvatarImg: {
     width: 60,
     height: 60,
     borderRadius: 30,
   },
-  employeeInfo: {
+  heroInfo: {
     flex: 1,
   },
-  employeeName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#122c2a',
+  heroName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
   },
-  employeePosition: {
+  heroPosition: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  heroStats: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: 12,
+  },
+  heroStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  heroStatDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  heroStatNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  heroStatLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#122c2a',
+    letterSpacing: -0.3,
+  },
+  emptyCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  emptyCardText: {
     fontSize: 14,
     color: '#666',
-    marginTop: 4,
+    fontWeight: '500',
   },
-  listItem: {
+  horizontalCards: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+    flexWrap: 'wrap',
+  },
+  absentCard: {
+    width: '48%',
+    padding: 14,
+    borderRadius: 16,
+    minHeight: 120,
+    justifyContent: 'space-between',
+  },
+  absentIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  absentName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#122c2a',
+  },
+  absentType: {
+    fontSize: 12,
+    color: '#122c2a',
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  absentUntil: {
+    fontSize: 11,
+    color: '#122c2a',
+    opacity: 0.6,
+    marginTop: 6,
+  },
+  birthdayTodayCard: {
+    flexDirection: 'row',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  birthdayAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  birthdayInfo: {
+    flex: 1,
+  },
+  birthdayName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  birthdayPosition: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 2,
+  },
+  upcomingList: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginBottom: 24,
+  },
+  upcomingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#f3f4f6',
   },
-  listItemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+  upcomingAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#fef3c7',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  listItemContent: {
+  upcomingInfo: {
     flex: 1,
   },
-  listItemTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-  },
-  listItemSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-  },
-  daysUntil: {
-    fontSize: 12,
+  upcomingName: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#122c2a',
   },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    paddingVertical: 16,
+  upcomingPosition: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  upcomingDays: {
+    alignItems: 'center',
+    backgroundColor: '#f5f5f7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    minWidth: 50,
+  },
+  upcomingDaysNumber: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#122c2a',
+  },
+  upcomingDaysLabel: {
+    fontSize: 10,
+    color: '#6b7280',
+  },
+  bottomSpacer: {
+    height: 120,
   },
 });

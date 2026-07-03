@@ -89,18 +89,14 @@ export default function HomeScreen() {
       {/* Sticky Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={styles.helpBadge}
-            onPress={() => router.push('/perfil' as any)}
-            testID="profile-btn"
-          >
+          <View style={styles.helpBadge}>
             <Image
               source={require('@/assets/images/conactivos-logo.png')}
               style={styles.logoIcon}
               resizeMode="contain"
             />
             <Text style={styles.helpText}>{user?.name?.split(' ')[0]}</Text>
-          </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.headerActions}>
           {isAdmin && (
@@ -118,6 +114,17 @@ export default function HomeScreen() {
             testID="employees-btn"
           >
             <Ionicons name="people" size={22} color="#122c2a" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.profileAvatarButton}
+            onPress={() => router.push('/perfil' as any)}
+            testID="profile-btn"
+          >
+            {user?.profile_photo ? (
+              <Image source={{ uri: user.profile_photo }} style={styles.profileAvatarImage} />
+            ) : (
+              <Ionicons name="person" size={22} color="#fff" />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -324,6 +331,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e5e7eb',
+  },
+  profileAvatarButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#b68a2e',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profileAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   content: {
     flex: 1,

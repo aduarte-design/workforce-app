@@ -63,14 +63,26 @@ export default function NewEmployeeScreen() {
         role: form.role,
       });
 
-      Alert.alert('Éxito', 'Empleado creado correctamente', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      // Show alert (native) and navigate back (works on both web and native)
+      if (Platform.OS === 'web') {
+        // Use a simple confirm on web since Alert doesn't render buttons
+        window.alert('Empleado creado correctamente');
+        router.back();
+      } else {
+        Alert.alert('Éxito', 'Empleado creado correctamente', [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]);
+      }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || error.message || 'No se pudo crear el empleado');
+      const msg = error.response?.data?.detail || error.message || 'No se pudo crear el empleado';
+      if (Platform.OS === 'web') {
+        window.alert('Error: ' + msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     } finally {
       setIsSubmitting(false);
     }

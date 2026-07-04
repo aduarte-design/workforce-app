@@ -10,36 +10,27 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { getUsers } from '@/src/utils/api';
 
 export default function EmpleadosScreen() {
   const router = useRouter();
+  const { isAdmin } = useAuth();
   
   const [employees, setEmployees] = useState<any[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadEmployees();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadEmployees();
+    }, [])
+  );
 
   useEffect(() => {
-    filterEmployees();
-  }, [searchQuery, employees]);
-
-  const loadEmployees = async () => {
-    try {
-      const data = await getUsers();
-      setEmployees(data);
-    } catch (error) {
-      console.error('Error loading employees:', error);
-    }
-  };
-
-  const filterEmployees = () => {
     if (!searchQuery.trim()) {
       setFilteredEmployees(employees);
     } else {
@@ -52,6 +43,15 @@ export default function EmpleadosScreen() {
       );
       setFilteredEmployees(filtered);
     }
+  }, [searchQuery, employees]);
+
+  const loadEmployees = async () => {
+    try {
+      const data = await getUsers();
+      setEmployees(data);
+    } catch (error) {
+      console.error('Error loading employees:', error);
+    }
   };
 
   const onRefresh = useCallback(async () => {
@@ -61,34 +61,50 @@ export default function EmpleadosScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#122c2a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Empleados</Text>
-        <View style={{ width: 44 }} />
+        {isAdmin ? (
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push('/empleados/nuevo' as any)}
+            testID="add-employee-btn"
+          >
+            <Ionicons name="add" size={24} color="#122c2a" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
       </View>
 
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" />
+        <Ionicons name="search" size={20} color="#9ca3af" />
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar empleados..."
+          placeholderTextColor="#9ca3af"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color="#999" />
+            <Ionicons name="close-circle" size={20} color="#9ca3af" />
           </TouchableOpacity>
         )}
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <Text style={styles.countText}>
+          {filteredEmployees.length} {filteredEmployees.length === 1 ? 'empleado' : 'empleados'}
+        </Text>
+        
         {filteredEmployees.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={64} color="#ccc" />
@@ -102,6 +118,7 @@ export default function EmpleadosScreen() {
               key={employee._id}
               style={styles.employeeCard}
               onPress={() => router.push(`/empleados/${employee._id}` as any)}
+              testID={`employee-${employee._id}`}
             >
               <View style={styles.employeeAvatar}>
                 {employee.profile_photo ? (
@@ -110,7 +127,7 @@ export default function EmpleadosScreen() {
                     style={styles.avatarImage}
                   />
                 ) : (
-                  <Ionicons name="person" size={32} color="#122c2a" />
+                  <Ionicons name="person" size={26} color="#122c2a" />
                 )}
               </View>
 
@@ -118,21 +135,20 @@ export default function EmpleadosScreen() {
                 <View style={styles.employeeNameRow}>
                   <Text style={styles.employeeName}>{employee.name}</Text>
                   {employee.is_employee_of_month && (
-                    <Ionicons name="star" size={16} color="#b68a2e" />
+                    <Ionicons name="star" size={14} color="#b68a2e" />
                   )}
                 </View>
                 <Text style={styles.employeePosition}>{employee.position}</Text>
-                <Text style={styles.employeeEmail}>{employee.email}</Text>
               </View>
 
               <View style={styles.roleIndicator}>
                 {employee.role === 'admin' && (
                   <View style={styles.adminBadge}>
-                    <Ionicons name="shield-checkmark" size={14} color="#122c2a" />
+                    <Ionicons name="shield-checkmark" size={12} color="#122c2a" />
                     <Text style={styles.adminText}>Admin</Text>
                   </View>
                 )}
-                <Ionicons name="chevron-forward" size={20} color="#999" />
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
               </View>
             </TouchableOpacity>
           ))
@@ -145,53 +161,71 @@ export default function EmpleadosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f5f7',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#f5f5f7',
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#122c2a',
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e5e7eb',
+    gap: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
-    marginLeft: 8,
+    fontSize: 15,
+    color: '#122c2a',
   },
   content: {
     flex: 1,
     paddingHorizontal: 16,
   },
+  countText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
+    marginTop: 8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
   emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 64,
@@ -204,26 +238,26 @@ const styles = StyleSheet.create({
   employeeCard: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#e5e7eb',
     alignItems: 'center',
   },
   employeeAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#b68a2e',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fef3c7',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   avatarImage: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   employeeInfo: {
     flex: 1,
@@ -232,24 +266,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   employeeName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#122c2a',
   },
   employeePosition: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  employeeEmail: {
-    fontSize: 12,
-    color: '#999',
+    fontSize: 13,
+    color: '#6b7280',
   },
   roleIndicator: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
   },
   adminBadge: {
@@ -257,13 +287,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#fef3c7',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    gap: 4,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 3,
   },
   adminText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#122c2a',
   },
 });

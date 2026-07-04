@@ -136,7 +136,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Big Title */}
-        <Text style={styles.pageTitle}>Vista general</Text>
+        <Text style={styles.pageTitle}>¡Hola!</Text>
 
         {/* Hero Card - Employee of the Month */}
         {employeeOfMonth && (

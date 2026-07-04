@@ -239,17 +239,33 @@ async def require_admin(current_user: dict = Depends(get_current_user)):
 # ==================== AUTH ROUTES ====================
 
 @api_router.post("/auth/register")
-async def register(user_data: UserRegister):
+async def register(user_data: UserRegister, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    # Check auth: only admins can create users (unless bootstrap - no users exist)
+    total_users = await db.users.count_documents({})
+    if total_users > 0:
+        # Require admin auth
+        try:
+            token = credentials.credentials
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id: str = payload.get("sub")
+            current_user = await db.users.find_one({"_id": ObjectId(user_id)})
+            if not current_user or current_user.get("role") != "admin":
+                raise HTTPException(status_code=403, detail="Solo administradores pueden crear empleados")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=401, detail="Autenticación requerida")
+    
     # Check if email already exists
     existing_user = await db.users.find_one({"email": user_data.email})
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="El correo ya está registrado")
     
     # Check admin limit (max 3 admins)
     if user_data.role == "admin":
         admin_count = await db.users.count_documents({"role": "admin"})
         if admin_count >= 3:
-            raise HTTPException(status_code=400, detail="Maximum 3 administrators allowed")
+            raise HTTPException(status_code=400, detail="Máximo 3 administradores permitidos")
     
     # Hash password
     hashed_password = hash_password(user_data.password)
@@ -262,7 +278,7 @@ async def register(user_data: UserRegister):
     
     result = await db.users.insert_one(user_dict)
     
-    # Create token
+    # Create token for the new user
     token = create_access_token({"sub": str(result.inserted_id)})
     
     return {

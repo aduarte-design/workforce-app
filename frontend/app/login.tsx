@@ -65,7 +65,6 @@ export default function LoginScreen() {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Text style={styles.brandName}>conactivos</Text>
           </View>
 
           {/* Big Welcome Title */}
@@ -215,19 +214,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    gap: 10,
+    marginTop: 24,
+    marginBottom: 8,
   },
   logo: {
-    width: 40,
-    height: 40,
+    width: 220,
+    height: 60,
     tintColor: '#fff',
-  },
-  brandName: {
-    fontSize: 26,
-    fontWeight: '600',
-    color: '#fff',
-    letterSpacing: 0.5,
   },
   welcomeContainer: {
     marginTop: 24,

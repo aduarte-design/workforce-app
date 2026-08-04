@@ -89,14 +89,11 @@ export default function HomeScreen() {
       {/* Sticky Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.helpBadge}>
-            <Image
-              source={require('@/assets/images/conactivos-logo.png')}
-              style={styles.logoIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.helpText}>{user?.name?.split(' ')[0]}</Text>
-          </View>
+          <Image
+            source={require('@/assets/images/conactivos-logo.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.headerActions}>
           {isAdmin && (
@@ -136,7 +133,7 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Big Title */}
-        <Text style={styles.pageTitle}>¡Hola!</Text>
+        <Text style={styles.pageTitle}>¡Hola, {user?.name?.split(' ')[0]}!</Text>
 
         {/* Hero Card - Employee of the Month */}
         {employeeOfMonth && (
@@ -296,27 +293,9 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
   },
-  helpBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  logoIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#122c2a',
-  },
-  helpText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#122c2a',
+  headerLogo: {
+    width: 130,
+    height: 34,
   },
   headerActions: {
     flexDirection: 'row',

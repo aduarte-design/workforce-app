@@ -138,7 +138,7 @@ export default function MetasScreen() {
             style={styles.editButton}
             onPress={handleOpenEditModal}
           >
-            <Ionicons name="create" size={22} color="#122c2a" />
+            <Ionicons name="create" size={20} color="#fff" />
           </TouchableOpacity>
         )}
       </View>
@@ -301,7 +301,7 @@ export default function MetasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#f2f4f6',
   },
   header: {
     flexDirection: 'row',
@@ -309,23 +309,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#f2f4f6',
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 24,
     fontWeight: '800',
     color: '#122c2a',
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
   editButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#122c2a',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   content: {
     flex: 1,

@@ -309,6 +309,65 @@ async def login(credentials: UserLogin):
         }
     }
 
+class GoogleSessionRequest(BaseModel):
+    session_id: str
+
+@api_router.post("/auth/session")
+async def google_session(request: GoogleSessionRequest):
+    """Exchange Emergent session_id for a JWT token (Google Auth)"""
+    import httpx
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": request.session_id}
+            )
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=401, detail="Sesión inválida o expirada")
+            
+            google_data = response.json()
+            email = google_data.get("email")
+            name = google_data.get("name")
+            picture = google_data.get("picture")
+            
+            if not email:
+                raise HTTPException(status_code=401, detail="No se pudo obtener el correo de Google")
+            
+            # Look up user by email - only allow existing users
+            user = await db.users.find_one({"email": email})
+            if not user:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Tu correo no está registrado. Contacta al administrador para crear tu cuenta."
+                )
+            
+            # Update profile photo if we don't have one and Google has one
+            if not user.get("profile_photo") and picture:
+                await db.users.update_one(
+                    {"_id": user["_id"]},
+                    {"$set": {"profile_photo": picture}}
+                )
+                user["profile_photo"] = picture
+            
+            # Generate JWT
+            token = create_access_token({"sub": str(user["_id"])})
+            
+            return {
+                "token": token,
+                "user": {
+                    "_id": str(user["_id"]),
+                    "email": user["email"],
+                    "name": user["name"],
+                    "role": user["role"]
+                }
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error autenticando con Google: {str(e)}")
+
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user

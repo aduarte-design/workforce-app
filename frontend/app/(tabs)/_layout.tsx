@@ -9,65 +9,70 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#122c2a',
-        tabBarInactiveTintColor: '#9ca3af',
-        tabBarShowLabel: true,
+        tabBarInactiveTintColor: '#c7cad1',
+        tabBarShowLabel: false,
         tabBarStyle: styles.tabBar,
         tabBarBackground: () => <View style={styles.tabBarBg} />,
         tabBarItemStyle: styles.tabBarItem,
-        tabBarLabelStyle: styles.tabBarLabel,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="kudos"
         options={{
-          title: 'Kudos',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} />
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? 'heart' : 'heart-outline'} size={22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="solicitudes"
         options={{
-          title: 'Permisos',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'document-text' : 'document-text-outline'} size={22} color={color} />
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? 'document-text' : 'document-text-outline'} size={22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="calendario"
         options={{
-          title: 'Eventos',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="metas"
         options={{
-          title: 'Metas',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} size={22} color={color} />
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? 'stats-chart' : 'stats-chart-outline'} size={22} color={color} />
+            </View>
           ),
         }}
       />
       <Tabs.Screen
         name="capsulas"
         options={{
-          title: 'Cápsulas',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'bulb' : 'bulb-outline'} size={22} color={color} />
+            <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+              <Ionicons name={focused ? 'bulb' : 'bulb-outline'} size={22} color={color} />
+            </View>
           ),
         }}
       />
@@ -78,43 +83,45 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 20,
-    left: 12,
-    right: 12,
-    height: 68,
-    borderRadius: 34,
+    bottom: 16,
+    left: 16,
+    right: 16,
+    height: 62,
+    borderRadius: 31,
     borderTopWidth: 0,
     backgroundColor: 'transparent',
     elevation: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.15,
-        shadowRadius: 12,
+        shadowRadius: 20,
       },
       android: {
         elevation: 12,
       },
       web: {
-        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
       },
     }),
   },
   tabBarBg: {
     flex: 1,
     backgroundColor: '#fff',
-    borderRadius: 34,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderRadius: 31,
   },
   tabBarItem: {
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingVertical: 8,
   },
-  tabBarLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconWrapActive: {
+    backgroundColor: '#f0fdf4',
   },
 });

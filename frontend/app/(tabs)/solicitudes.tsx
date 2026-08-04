@@ -182,12 +182,12 @@ export default function SolicitudesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Solicitudes</Text>
+        <Text style={styles.headerTitle}>Permisos</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowNewRequestModal(true)}
         >
-          <Ionicons name="add" size={24} color="#122c2a" />
+          <Ionicons name="add" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -393,7 +393,7 @@ export default function SolicitudesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#f2f4f6',
   },
   header: {
     flexDirection: 'row',
@@ -401,23 +401,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#f2f4f6',
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 24,
     fontWeight: '800',
     color: '#122c2a',
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#122c2a',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   content: {
     flex: 1,

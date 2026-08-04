@@ -127,7 +127,7 @@ export default function KudosScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Kudos</Text>
+          <Text style={styles.headerTitle}>Reconocimientos</Text>
           <Text style={styles.headerSubtitle}>Reconoce a tus compañeros</Text>
         </View>
         <TouchableOpacity
@@ -135,7 +135,7 @@ export default function KudosScreen() {
           onPress={handleOpenModal}
           testID="send-kudo-btn"
         >
-          <Ionicons name="add" size={24} color="#122c2a" />
+          <Ionicons name="add" size={22} color="#122c2a" />
         </TouchableOpacity>
       </View>
 
@@ -355,7 +355,7 @@ export default function KudosScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#122c2a',
   },
   header: {
     flexDirection: 'row',
@@ -363,28 +363,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#122c2a',
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#122c2a',
-    letterSpacing: -1,
+    color: '#fff',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
     marginTop: 2,
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#b68a2e',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -392,9 +390,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     padding: 4,
     borderRadius: 12,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   tab: {
     flex: 1,
@@ -403,11 +399,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   tabActive: {
-    backgroundColor: '#122c2a',
+    backgroundColor: '#b68a2e',
   },
   tabText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: 'rgba(255,255,255,0.6)',
     fontWeight: '600',
   },
   tabTextActive: {

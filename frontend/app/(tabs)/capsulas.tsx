@@ -184,7 +184,7 @@ export default function CapsulasScreen() {
           style={styles.addButton}
           onPress={() => handleOpenModal()}
         >
-          <Ionicons name="add" size={24} color="#122c2a" />
+          <Ionicons name="add" size={22} color="#122c2a" />
         </TouchableOpacity>
       </View>
 
@@ -195,7 +195,7 @@ export default function CapsulasScreen() {
       >
         {upcomingCapsules.length === 0 && pastCapsules.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="bulb-outline" size={64} color="#ccc" />
+            <Ionicons name="bulb-outline" size={64} color="rgba(255,255,255,0.2)" />
             <Text style={styles.emptyText}>No hay cápsulas programadas</Text>
           </View>
         ) : (
@@ -216,7 +216,7 @@ export default function CapsulasScreen() {
                     </View>
 
                     <View style={styles.responsibleContainer}>
-                      <Ionicons name="person" size={16} color="#666" />
+                      <Ionicons name="person" size={14} color="rgba(255,255,255,0.6)" />
                       <Text style={styles.responsibleText}>
                         Responsable: {capsule.responsible_employee_name}
                       </Text>
@@ -231,14 +231,14 @@ export default function CapsulasScreen() {
                         style={styles.actionButton}
                         onPress={() => handleOpenModal(capsule)}
                       >
-                        <Ionicons name="create-outline" size={18} color="#122c2a" />
+                        <Ionicons name="create-outline" size={16} color="#fff" />
                         <Text style={styles.actionButtonText}>Editar</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() => handleDeleteCapsule(capsule._id)}
                       >
-                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                        <Ionicons name="trash-outline" size={16} color="#f87171" />
                         <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
                           Eliminar
                         </Text>
@@ -265,7 +265,7 @@ export default function CapsulasScreen() {
                     </View>
 
                     <View style={styles.responsibleContainer}>
-                      <Ionicons name="person" size={16} color="#666" />
+                      <Ionicons name="person" size={14} color="rgba(255,255,255,0.6)" />
                       <Text style={styles.responsibleText}>
                         Responsable: {capsule.responsible_employee_name}
                       </Text>
@@ -279,7 +279,7 @@ export default function CapsulasScreen() {
                       style={styles.deleteOnlyButton}
                       onPress={() => handleDeleteCapsule(capsule._id)}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      <Ionicons name="trash-outline" size={16} color="#f87171" />
                       <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>
                         Eliminar
                       </Text>
@@ -431,7 +431,7 @@ export default function CapsulasScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#122c2a',
   },
   header: {
     flexDirection: 'row',
@@ -439,23 +439,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#f5f5f7',
+    backgroundColor: '#122c2a',
   },
   headerTitle: {
-    fontSize: 34,
+    fontSize: 24,
     fontWeight: '800',
-    color: '#122c2a',
-    letterSpacing: -1,
+    color: '#fff',
+    letterSpacing: -0.5,
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#fff',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#b68a2e',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   content: {
     flex: 1,
@@ -468,104 +466,105 @@ const styles = StyleSheet.create({
     paddingVertical: 64,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#999',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.5)',
     marginTop: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#122c2a',
-    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 10,
     marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   capsuleCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
   },
   pastCapsuleCard: {
-    opacity: 0.7,
+    opacity: 0.5,
   },
   capsuleHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   capsuleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fef3c7',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(182, 138, 46, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   pastCapsuleIcon: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   capsuleInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   capsuleTopic: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#122c2a',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
   },
   capsuleDate: {
-    fontSize: 13,
-    color: '#666',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
     textTransform: 'capitalize',
   },
   responsibleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
     paddingLeft: 4,
   },
   responsibleText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
     marginLeft: 6,
   },
   capsuleDescription: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
-    marginBottom: 12,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    lineHeight: 18,
+    marginBottom: 10,
   },
   capsuleActions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
+    gap: 6,
+    marginTop: 4,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 8,
-    gap: 6,
+    gap: 4,
   },
   actionButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#122c2a',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   deleteOnlyButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 8,
-    gap: 6,
-    marginTop: 8,
+    gap: 4,
+    marginTop: 4,
   },
   modalContainer: {
     flex: 1,

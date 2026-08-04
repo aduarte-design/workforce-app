@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerLogo: {
-    width: 130,
-    height: 34,
+    width: 200,
+    height: 52,
   },
   headerActions: {
     flexDirection: 'row',

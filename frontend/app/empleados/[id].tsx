@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -49,14 +50,14 @@ export default function EmployeeDetailScreen() {
       setKudos(kudosData);
     } catch (error) {
       console.error('Error loading employee:', error);
-      Alert.alert('Error', 'No se pudo cargar el empleado');
+      showAlert('Error', 'No se pudo cargar el empleado');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSetEmployeeOfMonth = () => {
-    Alert.alert(
+    showAlert(
       'Empleado del Mes',
       `¿Establecer a ${employee.name} como Empleado del Mes?`,
       [
@@ -66,10 +67,10 @@ export default function EmployeeDetailScreen() {
           onPress: async () => {
             try {
               await setEmployeeOfMonth(id as string);
-              Alert.alert('Éxito', 'Empleado del Mes actualizado');
+              showAlert('Éxito', 'Empleado del Mes actualizado');
               loadEmployee();
             } catch (error) {
-              Alert.alert('Error', 'No se pudo actualizar');
+              showAlert('Error', 'No se pudo actualizar');
             }
           },
         },

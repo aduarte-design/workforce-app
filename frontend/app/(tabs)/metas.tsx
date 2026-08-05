@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -63,12 +64,12 @@ export default function MetasScreen() {
     const currentAmount = parseFloat(editForm.current_amount);
 
     if (isNaN(goalAmount) || goalAmount < 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto de meta válido');
+      showAlert('Error', 'Por favor ingresa un monto de meta válido');
       return;
     }
 
     if (isNaN(currentAmount) || currentAmount < 0) {
-      Alert.alert('Error', 'Por favor ingresa un monto actual válido');
+      showAlert('Error', 'Por favor ingresa un monto actual válido');
       return;
     }
 
@@ -79,11 +80,11 @@ export default function MetasScreen() {
         current_amount: currentAmount,
       });
 
-      Alert.alert('Éxito', 'Meta actualizada correctamente');
+      showAlert('Éxito', 'Meta actualizada correctamente');
       setShowEditModal(false);
       loadGoal();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo actualizar la meta');
+      showAlert('Error', error.message || 'No se pudo actualizar la meta');
     } finally {
       setIsSubmitting(false);
     }

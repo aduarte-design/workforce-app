@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -83,7 +84,7 @@ export default function CalendarioScreen() {
 
   const handleSaveEvent = async () => {
     if (!eventForm.title.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un título para el evento');
+      showAlert('Error', 'Por favor ingresa un título para el evento');
       return;
     }
 
@@ -97,23 +98,23 @@ export default function CalendarioScreen() {
 
       if (editingEvent) {
         await updateEvent(editingEvent._id, eventData);
-        Alert.alert('Éxito', 'Evento actualizado correctamente');
+        showAlert('Éxito', 'Evento actualizado correctamente');
       } else {
         await createEvent(eventData);
-        Alert.alert('Éxito', 'Evento creado correctamente');
+        showAlert('Éxito', 'Evento creado correctamente');
       }
 
       handleCloseModal();
       loadEvents();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo guardar el evento');
+      showAlert('Error', error.message || 'No se pudo guardar el evento');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteEvent = (eventId: string) => {
-    Alert.alert('Eliminar Evento', '¿Estás seguro de eliminar este evento?', [
+    showAlert('Eliminar Evento', '¿Estás seguro de eliminar este evento?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -121,10 +122,10 @@ export default function CalendarioScreen() {
         onPress: async () => {
           try {
             await deleteEvent(eventId);
-            Alert.alert('Éxito', 'Evento eliminado');
+            showAlert('Éxito', 'Evento eliminado');
             loadEvents();
           } catch (error) {
-            Alert.alert('Error', 'No se pudo eliminar el evento');
+            showAlert('Error', 'No se pudo eliminar el evento');
           }
         },
       },

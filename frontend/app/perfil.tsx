@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -58,7 +59,7 @@ export default function ProfileScreen() {
   const handleChangePhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Se necesita permiso para acceder a las fotos');
+      showAlert('Permiso requerido', 'Se necesita permiso para acceder a las fotos');
       return;
     }
 
@@ -80,9 +81,9 @@ export default function ProfileScreen() {
         const updatedUser = { ...user!, profile_photo: photoBase64 };
         await storage.setItem('user', updatedUser);
         setProfile({ ...profile, profile_photo: photoBase64 });
-        Alert.alert('Éxito', 'Foto de perfil actualizada');
+        showAlert('Éxito', 'Foto de perfil actualizada');
       } catch (error) {
-        Alert.alert('Error', 'No se pudo actualizar la foto');
+        showAlert('Error', 'No se pudo actualizar la foto');
       } finally {
         setIsUploading(false);
       }
@@ -90,7 +91,7 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
+    showAlert('Cerrar Sesión', '¿Estás seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Cerrar Sesión',

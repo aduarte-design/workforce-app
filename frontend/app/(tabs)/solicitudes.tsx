@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -60,7 +61,7 @@ export default function SolicitudesScreen() {
 
   const handleCreateRequest = async () => {
     if (!newRequest.reason.trim()) {
-      Alert.alert('Error', 'Por favor ingresa una razón para la solicitud');
+      showAlert('Error', 'Por favor ingresa una razón para la solicitud');
       return;
     }
 
@@ -74,12 +75,12 @@ export default function SolicitudesScreen() {
         proof_document: newRequest.proof_document || undefined,
       });
 
-      Alert.alert('Éxito', 'Solicitud creada correctamente');
+      showAlert('Éxito', 'Solicitud creada correctamente');
       setShowNewRequestModal(false);
       resetNewRequest();
       loadRequests();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo crear la solicitud');
+      showAlert('Error', error.message || 'No se pudo crear la solicitud');
     } finally {
       setIsSubmitting(false);
     }
@@ -98,7 +99,7 @@ export default function SolicitudesScreen() {
   const handlePickDocument = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permiso requerido', 'Se necesita permiso para acceder a las fotos');
+      showAlert('Permiso requerido', 'Se necesita permiso para acceder a las fotos');
       return;
     }
 
@@ -119,7 +120,7 @@ export default function SolicitudesScreen() {
 
   const handleApproveReject = async (requestId: string, status: 'approved' | 'rejected') => {
     const actionText = status === 'approved' ? 'aprobar' : 'rechazar';
-    Alert.alert(
+    showAlert(
       'Confirmar',
       `¿Estás seguro de ${actionText} esta solicitud?`,
       [
@@ -129,10 +130,10 @@ export default function SolicitudesScreen() {
           onPress: async () => {
             try {
               await approveLeaveRequest(requestId, status);
-              Alert.alert('Éxito', `Solicitud ${status === 'approved' ? 'aprobada' : 'rechazada'}`);
+              showAlert('Éxito', `Solicitud ${status === 'approved' ? 'aprobada' : 'rechazada'}`);
               loadRequests();
             } catch (error) {
-              Alert.alert('Error', 'No se pudo actualizar la solicitud');
+              showAlert('Error', 'No se pudo actualizar la solicitud');
             }
           },
         },

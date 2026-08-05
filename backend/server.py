@@ -541,15 +541,18 @@ async def get_absent_employees(current_user: dict = Depends(get_current_user)):
 async def get_birthdays(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({"birthdate": {"$exists": True, "$ne": None}}).to_list(1000)
     
-    today = datetime.utcnow()
-    today_str = today.strftime("%m-%d")
+    today_date = datetime.utcnow().date()
+    today_str = today_date.strftime("%m-%d")
     
     birthdays_today = []
     birthdays_upcoming = []
     
     for user in users:
         if user.get("birthdate"):
-            birth_date = datetime.strptime(user["birthdate"], "%Y-%m-%d")
+            try:
+                birth_date = datetime.strptime(user["birthdate"], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                continue
             birth_month_day = birth_date.strftime("%m-%d")
             
             user_info = {
@@ -563,12 +566,19 @@ async def get_birthdays(current_user: dict = Depends(get_current_user)):
             if birth_month_day == today_str:
                 birthdays_today.append(user_info)
             else:
-                # Check if birthday is within next 30 days
-                this_year_birthday = birth_date.replace(year=today.year)
-                if this_year_birthday < today:
-                    this_year_birthday = birth_date.replace(year=today.year + 1)
+                # Check if birthday is within next 30 days (using pure date arithmetic)
+                try:
+                    this_year_birthday = birth_date.replace(year=today_date.year)
+                except ValueError:
+                    # Handles Feb 29 on non-leap years
+                    this_year_birthday = birth_date.replace(year=today_date.year, day=28)
+                if this_year_birthday < today_date:
+                    try:
+                        this_year_birthday = birth_date.replace(year=today_date.year + 1)
+                    except ValueError:
+                        this_year_birthday = birth_date.replace(year=today_date.year + 1, day=28)
                 
-                days_until = (this_year_birthday - today).days
+                days_until = (this_year_birthday - today_date).days
                 if 0 < days_until <= 30:
                     user_info["days_until"] = days_until
                     birthdays_upcoming.append(user_info)
@@ -979,6 +989,15 @@ async def seed_database():
     await db.notifications.delete_many({})
     await db.kudos.delete_many({})
     
+    # Dynamic dates for admins too
+    _today_adm = datetime.utcnow().date()
+    def _bday_adm(year: int, days_offset: int) -> str:
+        target = _today_adm + timedelta(days=days_offset)
+        try:
+            return target.replace(year=year).isoformat()
+        except ValueError:
+            return target.replace(year=year, day=28).isoformat()
+
     # Create admins
     admin_password = hash_password("admin123")
     admins = [
@@ -989,7 +1008,7 @@ async def seed_database():
             "position": "Directora de RRHH",
             "role": "admin",
             "phone": "555-0101",
-            "birthdate": "1985-03-15",
+            "birthdate": _bday_adm(1985, 60),
             "hire_date": "2020-01-15",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1001,7 +1020,7 @@ async def seed_database():
             "position": "Gerente General",
             "role": "admin",
             "phone": "555-0102",
-            "birthdate": "1980-07-22",
+            "birthdate": _bday_adm(1980, 150),
             "hire_date": "2019-06-01",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1013,7 +1032,7 @@ async def seed_database():
             "position": "Coordinadora Administrativa",
             "role": "admin",
             "phone": "555-0103",
-            "birthdate": "1988-11-08",
+            "birthdate": _bday_adm(1988, 210),
             "hire_date": "2020-09-01",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1024,6 +1043,19 @@ async def seed_database():
     admin_ids = [str(id) for id in admin_results.inserted_ids]
     
     # Create employees
+    # Dynamic birthdays so dashboard always has fresh data
+    _today = datetime.utcnow().date()
+    def _bday(year: int, days_offset: int) -> str:
+        """Generate a YYYY-MM-DD string with a birthdate that occurs `days_offset` from today.
+        Only month-day matters for the dashboard; year controls displayed age.
+        """
+        target = _today + timedelta(days=days_offset)
+        try:
+            return target.replace(year=year).isoformat()
+        except ValueError:
+            # Handles Feb 29 fallback
+            return target.replace(year=year, day=28).isoformat()
+
     employee_password = hash_password("employee123")
     employees = [
         {
@@ -1033,7 +1065,7 @@ async def seed_database():
             "position": "Desarrollador Senior",
             "role": "employee",
             "phone": "555-0201",
-            "birthdate": "1992-06-10",
+            "birthdate": _bday(1992, 0),  # birthday TODAY
             "hire_date": "2021-03-15",
             "is_employee_of_month": True,
             "created_at": datetime.utcnow()
@@ -1045,7 +1077,7 @@ async def seed_database():
             "position": "Diseñadora UX/UI",
             "role": "employee",
             "phone": "555-0202",
-            "birthdate": "1994-12-20",
+            "birthdate": _bday(1994, 3),  # in 3 days
             "hire_date": "2021-05-20",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1057,7 +1089,7 @@ async def seed_database():
             "position": "Analista de Datos",
             "role": "employee",
             "phone": "555-0203",
-            "birthdate": "1990-02-14",
+            "birthdate": _bday(1990, 8),  # in 8 days
             "hire_date": "2020-11-10",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1069,7 +1101,7 @@ async def seed_database():
             "position": "Ejecutiva de Ventas",
             "role": "employee",
             "phone": "555-0204",
-            "birthdate": "1995-08-05",
+            "birthdate": _bday(1995, 15),  # in 15 days
             "hire_date": "2022-01-15",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1081,7 +1113,7 @@ async def seed_database():
             "position": "Desarrollador Frontend",
             "role": "employee",
             "phone": "555-0205",
-            "birthdate": "1993-04-18",
+            "birthdate": _bday(1993, 22),  # in 22 days
             "hire_date": "2021-08-01",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1093,7 +1125,7 @@ async def seed_database():
             "position": "Coordinadora de Marketing",
             "role": "employee",
             "phone": "555-0206",
-            "birthdate": "1991-09-25",
+            "birthdate": _bday(1991, 45),  # in ~1.5 months
             "hire_date": "2020-07-15",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1105,7 +1137,7 @@ async def seed_database():
             "position": "Desarrollador Backend",
             "role": "employee",
             "phone": "555-0207",
-            "birthdate": "1989-01-30",
+            "birthdate": _bday(1989, 90),
             "hire_date": "2019-12-01",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1117,7 +1149,7 @@ async def seed_database():
             "position": "Contadora",
             "role": "employee",
             "phone": "555-0208",
-            "birthdate": "1987-05-12",
+            "birthdate": _bday(1987, 120),
             "hire_date": "2020-02-20",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1129,7 +1161,7 @@ async def seed_database():
             "position": "Soporte Técnico",
             "role": "employee",
             "phone": "555-0209",
-            "birthdate": "1996-07-08",
+            "birthdate": _bday(1996, 180),
             "hire_date": "2022-04-01",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()
@@ -1141,7 +1173,7 @@ async def seed_database():
             "position": "Asistente Administrativa",
             "role": "employee",
             "phone": "555-0210",
-            "birthdate": "1997-10-03",
+            "birthdate": _bday(1997, 240),
             "hire_date": "2022-06-15",
             "is_employee_of_month": False,
             "created_at": datetime.utcnow()

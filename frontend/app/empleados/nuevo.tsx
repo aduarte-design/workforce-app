@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -35,19 +36,19 @@ export default function NewEmployeeScreen() {
   const handleCreate = async () => {
     // Validation
     if (!form.email.trim() || !form.email.includes('@')) {
-      Alert.alert('Error', 'Ingresa un correo válido');
+      showAlert('Error', 'Ingresa un correo válido');
       return;
     }
     if (!form.password || form.password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      showAlert('Error', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
     if (!form.name.trim()) {
-      Alert.alert('Error', 'Ingresa el nombre del empleado');
+      showAlert('Error', 'Ingresa el nombre del empleado');
       return;
     }
     if (!form.position.trim()) {
-      Alert.alert('Error', 'Ingresa el cargo del empleado');
+      showAlert('Error', 'Ingresa el cargo del empleado');
       return;
     }
 
@@ -69,7 +70,7 @@ export default function NewEmployeeScreen() {
         window.alert('Empleado creado correctamente');
         router.back();
       } else {
-        Alert.alert('Éxito', 'Empleado creado correctamente', [
+        showAlert('Éxito', 'Empleado creado correctamente', [
           {
             text: 'OK',
             onPress: () => router.back(),
@@ -81,7 +82,7 @@ export default function NewEmployeeScreen() {
       if (Platform.OS === 'web') {
         window.alert('Error: ' + msg);
       } else {
-        Alert.alert('Error', msg);
+        showAlert('Error', msg);
       }
     } finally {
       setIsSubmitting(false);

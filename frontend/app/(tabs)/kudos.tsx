@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -82,22 +83,22 @@ export default function KudosScreen() {
 
   const handleSendKudo = async () => {
     if (!kudoForm.to_user_id) {
-      Alert.alert('Error', 'Por favor selecciona un empleado');
+      showAlert('Error', 'Por favor selecciona un empleado');
       return;
     }
     if (!kudoForm.message.trim()) {
-      Alert.alert('Error', 'Por favor escribe un mensaje');
+      showAlert('Error', 'Por favor escribe un mensaje');
       return;
     }
 
     setIsSubmitting(true);
     try {
       await createKudo(kudoForm);
-      Alert.alert('¡Kudo enviado!', 'Tu reconocimiento ha sido enviado 🎉');
+      showAlert('¡Kudo enviado!', 'Tu reconocimiento ha sido enviado 🎉');
       setShowKudoModal(false);
       loadData();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo enviar el kudo');
+      showAlert('Error', error.message || 'No se pudo enviar el kudo');
     } finally {
       setIsSubmitting(false);
     }

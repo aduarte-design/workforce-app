@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { showAlert } from '@/src/utils/alert';
 import {
   View,
   Text,
@@ -98,12 +99,12 @@ export default function CapsulasScreen() {
 
   const handleSaveCapsule = async () => {
     if (!capsuleForm.topic.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un tema para la cápsula');
+      showAlert('Error', 'Por favor ingresa un tema para la cápsula');
       return;
     }
 
     if (!capsuleForm.responsible_employee_id) {
-      Alert.alert('Error', 'Por favor selecciona un empleado responsable');
+      showAlert('Error', 'Por favor selecciona un empleado responsable');
       return;
     }
 
@@ -118,23 +119,23 @@ export default function CapsulasScreen() {
 
       if (editingCapsule) {
         await updateCapsule(editingCapsule._id, capsuleData);
-        Alert.alert('Éxito', 'Cápsula actualizada correctamente');
+        showAlert('Éxito', 'Cápsula actualizada correctamente');
       } else {
         await createCapsule(capsuleData);
-        Alert.alert('Éxito', 'Cápsula creada correctamente');
+        showAlert('Éxito', 'Cápsula creada correctamente');
       }
 
       handleCloseModal();
       loadData();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo guardar la cápsula');
+      showAlert('Error', error.message || 'No se pudo guardar la cápsula');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDeleteCapsule = (capsuleId: string) => {
-    Alert.alert('Eliminar Cápsula', '¿Estás seguro de eliminar esta cápsula?', [
+    showAlert('Eliminar Cápsula', '¿Estás seguro de eliminar esta cápsula?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -142,10 +143,10 @@ export default function CapsulasScreen() {
         onPress: async () => {
           try {
             await deleteCapsule(capsuleId);
-            Alert.alert('Éxito', 'Cápsula eliminada');
+            showAlert('Éxito', 'Cápsula eliminada');
             loadData();
           } catch (error) {
-            Alert.alert('Error', 'No se pudo eliminar la cápsula');
+            showAlert('Error', 'No se pudo eliminar la cápsula');
           }
         },
       },

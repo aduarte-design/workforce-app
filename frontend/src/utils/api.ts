@@ -214,3 +214,14 @@ export const seedDatabase = async () => {
   const response = await api.post('/seed');
   return response.data;
 };
+
+// Pausas Activas
+export const getPausasActivas = async () => {
+  const response = await api.get('/pausas-activas');
+  return response.data;
+};
+
+export const getRandomPausa = async () => {
+  const response = await api.get('/pausas-activas/random');
+  return response.data;
+};

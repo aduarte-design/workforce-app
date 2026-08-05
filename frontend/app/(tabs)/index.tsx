@@ -273,6 +273,25 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Pausas Activas - Quick access */}
+        <TouchableOpacity
+          style={styles.pausasCard}
+          onPress={() => router.push('/pausas' as any)}
+          activeOpacity={0.9}
+          testID="pausas-card"
+        >
+          <View style={styles.pausasIconWrap}>
+            <Ionicons name="body" size={22} color="#b68a2e" />
+          </View>
+          <View style={styles.pausasBody}>
+            <Text style={styles.pausasTitle}>Pausas Activas</Text>
+            <Text style={styles.pausasSubtitle}>
+              10 ejercicios · Recordatorios 11 AM y 4 PM
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#b68a2e" />
+        </TouchableOpacity>
+
         {/* Bottom spacer */}
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -503,5 +522,38 @@ const styles = StyleSheet.create({
   capsuleResponsible: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  pausasCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(182, 138, 46, 0.25)',
+  },
+  pausasIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fef3c7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pausasBody: {
+    flex: 1,
+  },
+  pausasTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#122c2a',
+    letterSpacing: -0.3,
+  },
+  pausasSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
   },
 });

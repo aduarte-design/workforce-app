@@ -1,24 +1,25 @@
-import React from 'react';
-import { Stack } from "expo-router";
+import React, { useEffect, useRef } from 'react';
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
-import { LogBox } from "react-native";
+import * as Notifications from "expo-notifications";
+import { LogBox, Platform } from "react-native";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
-import { AuthProvider } from "@/src/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/src/contexts/AuthContext";
+import { schedulePausaActivaNotifications } from "@/src/utils/pausaNotifications";
 
 // Disable logbox errors etc so that users can see the app
 // and agent works as expected.
-LogBox.ignoreAllLogs(true)
+LogBox.ignoreAllLogs(true);
 
 // Keep the native splash visible from cold start until icon fonts register.
-// Required because @expo/vector-icons' componentDidMount fallback fires
-// Font.loadAsync against a broken vendor path if any <Icon> mounts before
-// the family is registered — which throws on Android Expo Go.
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function AppShell() {
   const [loaded, error] = useIconFonts();
+  const { user } = useAuth();
+  const router = useRouter();
+  const scheduledOnce = useRef(false);
 
   useEffect(() => {
     if (loaded || error) {
@@ -26,17 +27,49 @@ export default function RootLayout() {
     }
   }, [loaded, error]);
 
-  // If the CDN is unreachable we fall through on error rather than wedging
-  // the app — icons will tofu, but the app still boots.
+  // Schedule daily "Pausas Activas" notifications once the user is logged in.
+  useEffect(() => {
+    if (!user || scheduledOnce.current || Platform.OS === 'web') return;
+    scheduledOnce.current = true;
+    schedulePausaActivaNotifications().then((res) => {
+      if (!res.scheduled) {
+        console.log('[pausas] notifications not scheduled:', res.reason);
+      }
+    });
+  }, [user]);
+
+  // Handle taps on notifications → deep link into /pausas
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const screen = (response.notification.request.content.data as any)?.screen;
+      if (typeof screen === 'string' && screen.length > 0) {
+        try {
+          router.push(screen as any);
+        } catch (e) {
+          console.warn('[pausas] failed to open screen', screen, e);
+        }
+      }
+    });
+    return () => sub.remove();
+  }, [router]);
+
   if (!loaded && !error) return null;
 
   return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="pausas" />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="(tabs)" />
-      </Stack>
+      <AppShell />
     </AuthProvider>
   );
 }

@@ -1,0 +1,42 @@
+{
+  "summary": "Backend regression for Conactivos HR after adding 'Pausas Activas' feature. 33/33 pytest tests PASS (added 6 new tests to TestPausasActivas + all 27 prior regression tests still green). Pausas coverage: (a) GET /api/pausas-activas without auth -> 403; (b) GET /api/pausas-activas/random without auth -> 403; (c) authenticated GET returns exactly 10 items sorted by 'order' 1..10; (d) each item has required fields _id (str), order (int), name, description, focus_area, duration_seconds (>0), instructions (list of >=3 non-empty strings) and image_base64 (non-empty, starts with 'data:image'); (e) GET /api/pausas-activas/random (employee auth) returns a single valid pausa with same shape and 1<=order<=10; (f) POST /api/seed does NOT wipe pausas_activas — count stays 10 before/after re-seed. Regressions confirmed intact: admin & employee login, /auth/me, wrong-password 401, /dashboard/birthdays (Juan today + Laura/Pedro/Sofía/Miguel upcoming with days_until>0, sorted), /dashboard/absent (Pedro medical), /goals (current month 65% $325K/$500K), /dashboard/employee-of-month (Juan Pérez, _id str, no password leak), seed counts (3 admins, 10 employees, 3 leaves, 3 events, 3 capsules, 6 kudos), leave create→approve flow, kudos create + self-kudo 400, admin guards on /reports/stats /events POST /goals PUT (403 for employees, 200 for admins), unauth /reports/stats -> 401/403. One latent backend bug uncovered during testing: server.py uses `except jwt.JWTError` which does not exist in PyJWT and crashes with AttributeError when any non-Expired exception path is hit inside get_current_user (e.g. stale token after seed rebuilds users). Not blocking pausas feature but should be fixed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "get_current_user (server.py:231, 215-232)",
+        "issue": "`except jwt.JWTError:` is invalid — PyJWT does not expose `jwt.JWTError` (that name belongs to python-jose). When get_current_user hits any error other than ExpiredSignatureError inside the try block (e.g., stale token whose user_id no longer maps to a Mongo document after re-seed, invalid signature, malformed token), Python evaluates `jwt.JWTError` and raises AttributeError → uvicorn returns 500 instead of 401. Repro: login → POST /api/seed (wipes users) → GET /api/pausas-activas with old token → 500. Fix: replace `jwt.JWTError` with `jwt.PyJWTError` (or `jwt.InvalidTokenError`), and add `except HTTPException: raise` before it so raised 401s propagate correctly."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix stale-token/invalid-token 500 in /app/backend/server.py get_current_user: use `except jwt.PyJWTError` (PyJWT) instead of non-existent `jwt.JWTError`, and add `except HTTPException: raise` before the JWT-error catch so 401s from user-not-found propagate as 401 instead of AttributeError-500."
+  ],
+  "critical_code_review_comments": [
+    "PausaActiva Pydantic model is defined but the endpoints return raw Mongo dicts (with datetime, ObjectId->str) rather than serializing through the model. This works because pausas documents don't include a `_id` ObjectId issue (converted manually) and no extra fields leak, but for consistency consider `response_model=List[PausaActiva]` on the list endpoint and `response_model=PausaActiva` on random.",
+    "GET /api/pausas-activas/random uses count_documents + skip+limit which is O(N) on every request; acceptable for N=10 but consider `$sample` aggregation for larger collections.",
+    "Neither pausas endpoint enforces role — both admin and employee can access, which matches the intended UX (any user can view break exercises). No issue, just noting.",
+    "server.py is 1433 lines — still growing. Continue previously flagged recommendation to split into routers.",
+    "PyJWT vs python-jose mismatch: `jwt.JWTError` bug (see backend_issues.minor) shows the codebase mixes API expectations of the two libraries."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestPausasActivas class with 6 tests)",
+    "/app/test_reports/pytest/pytest_results.xml (regenerated)"
+  ],
+  "success_rate": {"backend": "100% (33/33)", "frontend": "N/A (frontend testing not requested)"},
+  "seed_data_creation": "Session fixture calls POST /api/seed once at start. TestPausasActivas.test_seed_does_not_touch_pausas re-runs POST /api/seed mid-suite (still produces 3 admins / 10 employees etc.). No TEST_ pausas were inserted — read-only against pausas_activas collection.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Pausas Activas endpoints are wired correctly (10 seeded via /app/backend/scripts/generate_pausas.py). If reseeding pausas is needed, run `python /app/backend/scripts/generate_pausas.py` — POST /api/seed intentionally does not touch this collection. Known unrelated bug: get_current_user's `except jwt.JWTError` will produce 500 on invalid/stale tokens due to PyJWT missing that attribute (see rca_of_issue). Test credentials: admin1@conactivos.com/admin123, juan.perez@conactivos.com/employee123.",
+  "rca_of_issue": "Bug: get_current_user (server.py:215-232) has `except jwt.JWTError:` — PyJWT (imported as `import jwt`) does not expose `JWTError` (that class is in python-jose). Under happy path (valid token) the except clause is never evaluated, so tests pass. But when the token references a user_id that no longer exists (e.g., after POST /api/seed wipes users), the code path is: jwt.decode succeeds → find_one returns None → `raise HTTPException(401)` inside try → Python walks except handlers → evaluates `jwt.ExpiredSignatureError` (ok) then `jwt.JWTError` → AttributeError → uvicorn 500. Reproduction: (1) login → get token, (2) POST /api/seed, (3) GET /api/pausas-activas with old Bearer token → 500 (should be 401). Mitigation: change to `except jwt.PyJWTError:` and add `except HTTPException: raise` immediately after the try body's exception classes, so intentional 401s propagate and PyJWT decode errors are caught correctly."
+}

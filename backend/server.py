@@ -974,6 +974,46 @@ async def update_profile_photo(
     
     return {"message": "Profile photo updated"}
 
+# ==================== PAUSAS ACTIVAS ====================
+
+class PausaActiva(BaseModel):
+    id: Optional[str] = Field(default=None, alias="_id")
+    order: int
+    name: str
+    description: str
+    instructions: List[str]
+    duration_seconds: int
+    focus_area: str
+    image_base64: Optional[str] = None
+
+    class Config:
+        populate_by_name = True
+
+
+@api_router.get("/pausas-activas")
+async def get_pausas_activas(current_user: dict = Depends(get_current_user)):
+    """Return the 10 active-break exercises with illustrations."""
+    pausas = await db.pausas_activas.find().sort("order", 1).to_list(50)
+    for p in pausas:
+        p["_id"] = str(p["_id"])
+    return pausas
+
+
+@api_router.get("/pausas-activas/random")
+async def get_random_pausa(current_user: dict = Depends(get_current_user)):
+    """Return one random pause suggestion (used when opening from a notification)."""
+    import random
+    count = await db.pausas_activas.count_documents({})
+    if count == 0:
+        raise HTTPException(status_code=404, detail="No hay pausas activas configuradas")
+    skip = random.randint(0, count - 1)
+    pausa = await db.pausas_activas.find().skip(skip).limit(1).to_list(1)
+    if not pausa:
+        raise HTTPException(status_code=404, detail="No hay pausas activas")
+    pausa[0]["_id"] = str(pausa[0]["_id"])
+    return pausa[0]
+
+
 # ==================== SEED DATA ====================
 
 @api_router.post("/seed")

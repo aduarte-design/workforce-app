@@ -322,3 +322,85 @@ class TestAdminGuards:
     def test_unauthenticated_401(self, api_client):
         r = api_client.get(f"{API}/reports/stats")
         assert r.status_code in (401, 403)
+
+
+
+# ---------------------- Pausas Activas ----------------------
+class TestPausasActivas:
+    def test_list_requires_auth(self, api_client):
+        r = api_client.get(f"{API}/pausas-activas")
+        assert r.status_code in (401, 403), f"expected 401/403 without auth; got {r.status_code}"
+
+    def test_random_requires_auth(self, api_client):
+        r = api_client.get(f"{API}/pausas-activas/random")
+        assert r.status_code in (401, 403), f"expected 401/403 without auth; got {r.status_code}"
+
+    def test_list_returns_10_sorted(self, api_client, admin_headers):
+        r = api_client.get(f"{API}/pausas-activas", headers=admin_headers)
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert isinstance(data, list)
+        assert len(data) == 10, f"expected 10 pausas, got {len(data)}"
+        # sorted by order asc
+        orders = [p["order"] for p in data]
+        assert orders == sorted(orders), f"pausas not sorted asc: {orders}"
+        assert orders == list(range(1, 11)), f"expected orders 1..10, got {orders}"
+
+    def test_list_item_shape(self, api_client, admin_headers):
+        r = api_client.get(f"{API}/pausas-activas", headers=admin_headers)
+        data = r.json()
+        required_fields = ("_id", "order", "name", "description", "focus_area",
+                           "duration_seconds", "instructions", "image_base64")
+        for p in data:
+            for f in required_fields:
+                assert f in p, f"missing field '{f}' in pausa: {p.get('name')}"
+            assert isinstance(p["_id"], str)
+            assert isinstance(p["order"], int)
+            assert isinstance(p["name"], str) and p["name"].strip()
+            assert isinstance(p["description"], str) and p["description"].strip()
+            assert isinstance(p["focus_area"], str) and p["focus_area"].strip()
+            assert isinstance(p["duration_seconds"], int) and p["duration_seconds"] > 0
+            assert isinstance(p["instructions"], list)
+            assert len(p["instructions"]) >= 3, (
+                f"pausa '{p['name']}' has only {len(p['instructions'])} instructions; expected >= 3"
+            )
+            assert all(isinstance(step, str) and step.strip() for step in p["instructions"])
+            assert isinstance(p["image_base64"], str) and p["image_base64"]
+            assert p["image_base64"].startswith("data:image"), (
+                f"pausa '{p['name']}' image_base64 must start with 'data:image'"
+            )
+
+    def test_random_returns_valid_pausa(self, api_client, employee_headers):
+        r = api_client.get(f"{API}/pausas-activas/random", headers=employee_headers)
+        assert r.status_code == 200, r.text
+        p = r.json()
+        assert isinstance(p, dict)
+        for f in ("_id", "order", "name", "description", "focus_area",
+                  "duration_seconds", "instructions", "image_base64"):
+            assert f in p, f"missing field '{f}' in random pausa"
+        assert 1 <= p["order"] <= 10
+        assert len(p["instructions"]) >= 3
+        assert p["image_base64"].startswith("data:image")
+
+    def test_seed_does_not_touch_pausas(self, api_client, admin_headers):
+        """POST /api/seed must NOT wipe pausas_activas collection."""
+        # count before
+        r0 = api_client.get(f"{API}/pausas-activas", headers=admin_headers)
+        assert r0.status_code == 200
+        before = len(r0.json())
+        assert before == 10
+
+        # re-seed (wipes users -> stale admin_headers token; re-login after)
+        r_seed = api_client.post(f"{API}/seed")
+        assert r_seed.status_code == 200
+
+        # fresh admin token because seed rebuilt users with new _ids
+        r_login = api_client.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        assert r_login.status_code == 200, r_login.text
+        fresh_headers = {"Authorization": f"Bearer {r_login.json()['token']}", "Content-Type": "application/json"}
+
+        # count after must still be 10
+        r1 = api_client.get(f"{API}/pausas-activas", headers=fresh_headers)
+        assert r1.status_code == 200, r1.text
+        after = len(r1.json())
+        assert after == 10, f"seed should not touch pausas_activas; before={before} after={after}"

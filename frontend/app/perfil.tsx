@@ -206,11 +206,11 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.kudosCardHeader}>
             <Ionicons name="heart" size={20} color="#ef4444" />
-            <Text style={styles.cardTitle}>Kudos Recibidos ({receivedKudos.length})</Text>
+            <Text style={styles.cardTitle}>Likes Recibidos ({receivedKudos.length})</Text>
           </View>
 
           {receivedKudos.length === 0 ? (
-            <Text style={styles.emptyText}>Aún no has recibido kudos</Text>
+            <Text style={styles.emptyText}>Aún no has recibido likes</Text>
           ) : (
             receivedKudos.slice(0, 5).map((kudo) => {
               const cat = CATEGORY_INFO[kudo.category] || CATEGORY_INFO.teamwork;

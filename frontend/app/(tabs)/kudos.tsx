@@ -94,11 +94,11 @@ export default function KudosScreen() {
     setIsSubmitting(true);
     try {
       await createKudo(kudoForm);
-      showAlert('¡Kudo enviado!', 'Tu reconocimiento ha sido enviado 🎉');
+      showAlert('¡Like enviado!', 'Tu like ha sido enviado 🎉');
       setShowKudoModal(false);
       loadData();
     } catch (error: any) {
-      showAlert('Error', error.message || 'No se pudo enviar el kudo');
+      showAlert('Error', error.message || 'No se pudo enviar el like');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,7 +128,7 @@ export default function KudosScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Reconocimientos</Text>
+          <Text style={styles.headerTitle}>Likes</Text>
           <Text style={styles.headerSubtitle}>Reconoce a tus compañeros</Text>
         </View>
         <TouchableOpacity
@@ -169,7 +169,7 @@ export default function KudosScreen() {
           kudos.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="heart-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>Sé el primero en dar un kudo</Text>
+              <Text style={styles.emptyText}>Sé el primero en dar un like</Text>
             </View>
           ) : (
             kudos.map((kudo) => {
@@ -206,7 +206,7 @@ export default function KudosScreen() {
           leaderboard.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="trophy-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>Aún no hay reconocimientos</Text>
+              <Text style={styles.emptyText}>Aún no hay likes</Text>
             </View>
           ) : (
             leaderboard.map((entry, index) => (
@@ -251,7 +251,7 @@ export default function KudosScreen() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Enviar Kudo</Text>
+              <Text style={styles.modalTitle}>Enviar Like</Text>
               <TouchableOpacity onPress={() => setShowKudoModal(false)}>
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
@@ -327,7 +327,7 @@ export default function KudosScreen() {
                 style={styles.textArea}
                 value={kudoForm.message}
                 onChangeText={(text) => setKudoForm({ ...kudoForm, message: text })}
-                placeholder="Escribe un mensaje de reconocimiento..."
+                placeholder="Escribe un mensaje para tu like..."
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -342,7 +342,7 @@ export default function KudosScreen() {
               >
                 <Ionicons name="heart" size={20} color="#fff" />
                 <Text style={styles.submitButtonText}>
-                  {isSubmitting ? 'Enviando...' : 'Enviar Kudo'}
+                  {isSubmitting ? 'Enviando...' : 'Enviar Like'}
                 </Text>
               </TouchableOpacity>
             </ScrollView>

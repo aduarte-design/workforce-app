@@ -246,7 +246,7 @@ export default function HomeScreen() {
               <View style={[styles.miniIcon, { backgroundColor: '#fce7f3' }]}>
                 <Ionicons name="heart" size={14} color="#ec4899" />
               </View>
-              <Text style={styles.gridCardLabel}>Reconocimientos</Text>
+              <Text style={styles.gridCardLabel}>Likes</Text>
             </View>
             <Text style={styles.gridNumber}>{data.kudos.length}</Text>
             <Text style={styles.gridSubtext}>este mes</Text>

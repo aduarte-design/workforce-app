@@ -186,16 +186,16 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* Kudos */}
+        {/* Likes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reconocimientos</Text>
+          <Text style={styles.sectionTitle}>Likes</Text>
           <View style={styles.bigStatCard}>
             <View style={styles.kudosHeader}>
               <Ionicons name="heart" size={32} color="#ef4444" />
             </View>
-            <Text style={styles.bigStatLabel}>Total de Kudos</Text>
+            <Text style={styles.bigStatLabel}>Total de Likes</Text>
             <Text style={styles.bigStatNumber}>{stats.kudos.total}</Text>
-            <Text style={styles.bigStatSubtext}>Reconocimientos enviados</Text>
+            <Text style={styles.bigStatSubtext}>Likes enviados</Text>
           </View>
         </View>
 

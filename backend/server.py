@@ -838,7 +838,7 @@ async def get_kudos(current_user: dict = Depends(get_current_user)):
 @api_router.post("/kudos")
 async def create_kudo(kudo_data: KudoCreate, current_user: dict = Depends(get_current_user)):
     if kudo_data.to_user_id == current_user["_id"]:
-        raise HTTPException(status_code=400, detail="No puedes darte kudos a ti mismo")
+        raise HTTPException(status_code=400, detail="No puedes darte likes a ti mismo")
     
     to_user = await db.users.find_one({"_id": ObjectId(kudo_data.to_user_id)})
     if not to_user:
@@ -855,8 +855,8 @@ async def create_kudo(kudo_data: KudoCreate, current_user: dict = Depends(get_cu
     # Notify recipient
     notification = {
         "user_id": kudo_data.to_user_id,
-        "title": "¡Recibiste un Kudo!",
-        "message": f"{current_user['name']} te ha dado un kudo: {kudo_data.message[:50]}",
+        "title": "¡Recibiste un Like!",
+        "message": f"{current_user['name']} te ha dado un like: {kudo_data.message[:50]}",
         "type": "kudo",
         "read": False,
         "created_at": datetime.utcnow()

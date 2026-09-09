@@ -125,11 +125,11 @@ export default function LoginScreen() {
             <View style={styles.form}>
               <Text style={styles.inputLabel}>Correo corporativo</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={18} color={GREEN} style={styles.inputIcon} />
+                <Ionicons name="mail-outline" size={18} color="#fff" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="tu@conactivos.com"
-                  placeholderTextColor="rgba(18,44,42,0.4)"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -142,11 +142,11 @@ export default function LoginScreen() {
 
               <Text style={styles.inputLabel}>Contraseña</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={18} color={GREEN} style={styles.inputIcon} />
+                <Ionicons name="lock-closed-outline" size={18} color="#fff" style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••"
-                  placeholderTextColor="rgba(18,44,42,0.4)"
+                  placeholderTextColor="rgba(255,255,255,0.5)"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -161,7 +161,7 @@ export default function LoginScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                     size={18}
-                    color={GREEN}
+                    color="#fff"
                   />
                 </TouchableOpacity>
               </View>
@@ -318,10 +318,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
     borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 52,
+    paddingHorizontal: 4,
+    height: 48,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.5)',
   },
   inputIcon: {
     marginRight: 10,
@@ -329,7 +331,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: GREEN,
+    color: '#fff',
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}),
   },
   eyeIcon: {

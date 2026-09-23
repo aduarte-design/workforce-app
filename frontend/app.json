@@ -2,7 +2,7 @@
   "expo": {
     "name": "frontend",
     "slug": "frontend",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "frontend",
@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.workforceapp.h9y1ky",
+      "buildNumber": "2",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Adjuntar documentos a solicitudes",
         "NSCameraUsageDescription": "Capturar fotos para documentos"
@@ -23,6 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.emergent.workforceapp.h9y1ky",
+      "versionCode": 2,
       "permissions": [
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",

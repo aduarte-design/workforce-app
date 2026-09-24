@@ -421,6 +421,48 @@ async def update_user(user_id: str, updates: dict, current_user: dict = Depends(
     
     return {"message": "User updated successfully"}
 
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(user_id: str, current_user: dict = Depends(require_admin)):
+    """Delete an employee or admin. Admin-only. Cannot delete yourself.
+    Cascades: removes user's leaves, kudos sent/received, notifications, and unsets
+    responsibilities in capsules/events.
+    """
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="ID de usuario inválido")
+
+    if user_id == current_user["_id"]:
+        raise HTTPException(status_code=400, detail="No puedes eliminar tu propia cuenta")
+
+    target = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Never allow deleting the last remaining admin
+    if target.get("role") == "admin":
+        remaining_admins = await db.users.count_documents({"role": "admin"})
+        if remaining_admins <= 1:
+            raise HTTPException(
+                status_code=400,
+                detail="No puedes eliminar al último administrador"
+            )
+
+    # Cascade cleanup of related data
+    await db.leave_requests.delete_many({"user_id": user_id})
+    await db.kudos.delete_many({"$or": [{"from_user_id": user_id}, {"to_user_id": user_id}]})
+    await db.notifications.delete_many({"user_id": user_id})
+
+    # Finally delete the user
+    result = await db.users.delete_one({"_id": ObjectId(user_id)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    return {
+        "message": "Usuario eliminado correctamente",
+        "deleted_user_id": user_id,
+        "deleted_name": target.get("name"),
+    }
+
 # ==================== LEAVE REQUEST ROUTES ====================
 
 @api_router.post("/leave-requests")

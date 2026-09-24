@@ -68,6 +68,11 @@ export const updateUser = async (userId: string, updates: any) => {
   return response.data;
 };
 
+export const deleteUser = async (userId: string) => {
+  const response = await api.delete(`/users/${userId}`);
+  return response.data;
+};
+
 // Leave Requests
 export const getLeaveRequests = async () => {
   const response = await api.get('/leave-requests');

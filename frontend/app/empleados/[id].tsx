@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getUser, getUserKudos, setEmployeeOfMonth } from '@/src/utils/api';
+import { getUser, getUserKudos, setEmployeeOfMonth, deleteUser } from '@/src/utils/api';
 
 const CATEGORY_INFO: any = {
   teamwork: { label: 'Trabajo en Equipo', color: '#3b82f6' },
@@ -27,11 +27,14 @@ const CATEGORY_INFO: any = {
 export default function EmployeeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   
   const [employee, setEmployee] = useState<any>(null);
   const [kudos, setKudos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const isSelf = user?._id === id;
 
   useEffect(() => {
     if (id) {
@@ -71,6 +74,35 @@ export default function EmployeeDetailScreen() {
               loadEmployee();
             } catch (error) {
               showAlert('Error', 'No se pudo actualizar');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDelete = () => {
+    if (!employee) return;
+    const roleWord = employee.role === 'admin' ? 'administrador' : 'empleado';
+    showAlert(
+      `Eliminar ${roleWord}`,
+      `¿Seguro que quieres eliminar a ${employee.name}? Esta acción no se puede deshacer y borrará también sus permisos, likes y notificaciones.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setIsDeleting(true);
+            try {
+              await deleteUser(id as string);
+              showAlert('Eliminado', `${employee.name} ha sido eliminado correctamente`);
+              router.back();
+            } catch (error: any) {
+              const detail = error?.response?.data?.detail || error?.message || 'No se pudo eliminar el usuario';
+              showAlert('Error', detail);
+            } finally {
+              setIsDeleting(false);
             }
           },
         },
@@ -202,6 +234,28 @@ export default function EmployeeDetailScreen() {
             })
           )}
         </View>
+
+        {/* Danger Zone - Delete User (admin only, not self) */}
+        {isAdmin && !isSelf && (
+          <TouchableOpacity
+            style={[styles.deleteBtn, isDeleting && styles.deleteBtnDisabled]}
+            onPress={handleDelete}
+            disabled={isDeleting}
+            testID="delete-user-btn"
+            activeOpacity={0.85}
+          >
+            {isDeleting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={18} color="#fff" />
+                <Text style={styles.deleteBtnText}>
+                  Eliminar {employee.role === 'admin' ? 'administrador' : 'empleado'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -387,5 +441,24 @@ const styles = StyleSheet.create({
     color: '#333',
     fontStyle: 'italic',
     lineHeight: 20,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#dc2626',
+    paddingVertical: 14,
+    borderRadius: 14,
+    marginTop: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  deleteBtnDisabled: {
+    opacity: 0.6,
+  },
+  deleteBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

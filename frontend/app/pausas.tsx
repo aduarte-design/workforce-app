@@ -288,6 +288,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 4,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
   reminderCard: {
     flexDirection: 'row',

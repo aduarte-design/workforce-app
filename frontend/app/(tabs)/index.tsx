@@ -311,6 +311,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
   greeting: {
     fontSize: 22,
@@ -355,6 +358,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
   },
   heroCard: {
     backgroundColor: '#122c2a',

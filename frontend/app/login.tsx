@@ -242,6 +242,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 32,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   logoContainer: {
     alignItems: 'center',

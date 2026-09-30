@@ -1,9 +1,19 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { View, Platform, StyleSheet } from 'react-native';
+import { View, Platform, StyleSheet, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
+const TAB_BAR_MAX_WIDTH = 640; // Constrain on tablets / large screens
+
 export default function TabsLayout() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+
+  // Center the pill on tablets/landscape by capping its width
+  const horizontalInset = Math.max(16, (width - TAB_BAR_MAX_WIDTH) / 2);
+  const bottomInset = Math.max(insets.bottom, 12);
+
   return (
     <Tabs
       screenOptions={{
@@ -11,7 +21,14 @@ export default function TabsLayout() {
         tabBarActiveTintColor: '#122c2a',
         tabBarInactiveTintColor: '#c7cad1',
         tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [
+          styles.tabBar,
+          {
+            bottom: bottomInset,
+            left: horizontalInset,
+            right: horizontalInset,
+          },
+        ],
         tabBarBackground: () => <View style={styles.tabBarBg} />,
         tabBarItemStyle: styles.tabBarItem,
       }}
@@ -83,9 +100,6 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
     height: 62,
     borderRadius: 31,
     borderTopWidth: 0,

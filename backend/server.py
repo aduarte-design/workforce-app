@@ -573,10 +573,15 @@ async def get_absent_employees(current_user: dict = Depends(get_current_user)):
         user = await db.users.find_one({"_id": ObjectId(req["user_id"])})
         if user:
             absent_employees.append({
+                "_id": str(user["_id"]),
                 "name": user["name"],
                 "position": user["position"],
+                "profile_photo": user.get("profile_photo"),
                 "type": req["type"],
-                "until": req["end_date"]
+                "reason": req.get("reason", ""),
+                "start_date": req["start_date"],
+                "end_date": req["end_date"],
+                "until": req["end_date"],
             })
     
     return absent_employees

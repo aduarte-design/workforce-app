@@ -158,9 +158,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Grid Row 1: Ausentes + Cumpleaños */}
+        {/* Grid Row 1: Ausentes + Cumpleaños (clickable, count-only) */}
         <View style={styles.gridRow}>
-          <View style={styles.gridCard}>
+          <TouchableOpacity
+            style={styles.gridCard}
+            onPress={() => router.push('/ausentes' as any)}
+            activeOpacity={0.85}
+            testID="absent-card"
+          >
             <View style={styles.gridCardHeader}>
               <View style={[styles.miniIcon, { backgroundColor: '#fee2e2' }]}>
                 <Ionicons name="person-remove" size={14} color="#ef4444" />
@@ -168,10 +173,18 @@ export default function HomeScreen() {
               <Text style={styles.gridCardLabel}>Ausentes</Text>
             </View>
             <Text style={styles.gridNumber}>{data.absent.length}</Text>
-            <Text style={styles.gridSubtext}>hoy</Text>
-          </View>
+            <View style={styles.gridFooter}>
+              <Text style={styles.gridSubtext}>Ver lista</Text>
+              <Ionicons name="chevron-forward" size={12} color="#9ca3af" />
+            </View>
+          </TouchableOpacity>
 
-          <View style={styles.gridCard}>
+          <TouchableOpacity
+            style={styles.gridCard}
+            onPress={() => router.push('/cumpleanos' as any)}
+            activeOpacity={0.85}
+            testID="birthdays-card"
+          >
             <View style={styles.gridCardHeader}>
               <View style={[styles.miniIcon, { backgroundColor: '#fef3c7' }]}>
                 <Ionicons name="gift" size={14} color="#b68a2e" />
@@ -181,10 +194,11 @@ export default function HomeScreen() {
             <Text style={styles.gridNumber}>
               {data.birthdays.today.length + data.birthdays.upcoming.length}
             </Text>
-            <Text style={styles.gridSubtext}>
-              {data.birthdays.today.length > 0 ? `${data.birthdays.today.length} hoy` : 'próximos'}
-            </Text>
-          </View>
+            <View style={styles.gridFooter}>
+              <Text style={styles.gridSubtext}>Ver lista</Text>
+              <Ionicons name="chevron-forward" size={12} color="#9ca3af" />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Meta Comercial */}
@@ -458,6 +472,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#9ca3af',
     marginTop: -2,
+  },
+  gridFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
   },
   metaCard: {
     backgroundColor: '#fff',

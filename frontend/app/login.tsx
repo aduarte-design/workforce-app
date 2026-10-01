@@ -184,6 +184,14 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.forgotLink}
+                onPress={() => router.push('/forgot-password' as any)}
+                testID="forgot-password-link"
+              >
+                <Text style={styles.forgotLinkText}>¿Olvidaste tu contraseña?</Text>
+              </TouchableOpacity>
+
               {/* Divider */}
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
@@ -376,6 +384,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  forgotLink: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  forgotLinkText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   divider: {
     flexDirection: 'row',

@@ -11,6 +11,14 @@ from typing import List, Optional, Literal
 from datetime import datetime, timedelta
 from bson import ObjectId
 import bcrypt
+from email_service import (
+    send_email,
+    tpl_leave_created,
+    tpl_leave_decision,
+    tpl_password_reset,
+    APP_PUBLIC_URL,
+)
+import secrets as _secrets
 import jwt
 
 ROOT_DIR = Path(__file__).parent
@@ -89,6 +97,7 @@ class UserRegister(BaseModel):
     phone: Optional[str] = None
     role: Literal["admin", "employee"] = "employee"
     birthdate: Optional[str] = None
+    hire_date: Optional[str] = None
     profile_photo: Optional[str] = None
 
 class LeaveRequest(BaseModel):
@@ -314,6 +323,64 @@ async def login(credentials: UserLogin):
 class GoogleSessionRequest(BaseModel):
     session_id: str
 
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+
+@api_router.post("/auth/password-reset/request")
+async def password_reset_request(payload: PasswordResetRequest):
+    """Send a password-reset email if the user exists.
+    Always returns 200 to avoid leaking which emails are registered.
+    """
+    user = await db.users.find_one({"email": payload.email})
+    if user:
+        token = _secrets.token_urlsafe(32)
+        await db.password_reset_tokens.insert_one({
+            "token": token,
+            "user_id": str(user["_id"]),
+            "email": user["email"],
+            "expires_at": datetime.utcnow() + timedelta(hours=1),
+            "used": False,
+            "created_at": datetime.utcnow(),
+        })
+        reset_url = f"{APP_PUBLIC_URL}/reset-password?token={token}"
+        try:
+            subject, html = tpl_password_reset(user_name=user["name"], reset_url=reset_url)
+            await send_email(to=user["email"], subject=subject, html=html)
+        except Exception as _e:
+            logger.warning(f"Failed sending password-reset email: {_e}")
+    return {"message": "Si el correo está registrado, enviaremos instrucciones para restablecer la contraseña."}
+
+
+@api_router.post("/auth/password-reset/confirm")
+async def password_reset_confirm(payload: PasswordResetConfirm):
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
+
+    token_doc = await db.password_reset_tokens.find_one({"token": payload.token, "used": False})
+    if not token_doc:
+        raise HTTPException(status_code=400, detail="Token inválido o ya usado")
+    if token_doc["expires_at"] < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="El enlace ha expirado. Solicita uno nuevo.")
+
+    hashed = hash_password(payload.new_password)
+    await db.users.update_one(
+        {"_id": ObjectId(token_doc["user_id"])},
+        {"$set": {"password": hashed}},
+    )
+    await db.password_reset_tokens.update_one(
+        {"_id": token_doc["_id"]},
+        {"$set": {"used": True, "used_at": datetime.utcnow()}},
+    )
+    return {"message": "Contraseña restablecida correctamente"}
+
+
 @api_router.post("/auth/session")
 async def google_session(request: GoogleSessionRequest):
     """Exchange Emergent session_id for a JWT token (Google Auth)"""
@@ -422,6 +489,196 @@ async def update_user(user_id: str, updates: dict, current_user: dict = Depends(
     return {"message": "User updated successfully"}
 
 
+@api_router.get("/users/{user_id}/export-pdf")
+async def export_user_pdf(user_id: str, current_user: dict = Depends(require_admin)):
+    """Admin-only. Returns a PDF with full employee data: profile, leave history, likes received/sent."""
+    from fastapi.responses import Response as FastAPIResponse
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+    )
+    import io
+
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(status_code=400, detail="ID inválido")
+
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    leaves = await db.leave_requests.find({"user_id": user_id}).sort("start_date", -1).to_list(500)
+    kudos_received = await db.kudos.find({"to_user_id": user_id}).sort("created_at", -1).to_list(500)
+    kudos_sent = await db.kudos.find({"from_user_id": user_id}).sort("created_at", -1).to_list(500)
+
+    # Build PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter,
+        leftMargin=15 * mm, rightMargin=15 * mm,
+        topMargin=18 * mm, bottomMargin=18 * mm,
+    )
+    styles = getSampleStyleSheet()
+    GREEN = colors.HexColor("#122c2a")
+    GOLD = colors.HexColor("#b68a2e")
+    GRAY = colors.HexColor("#6b7280")
+
+    title_style = ParagraphStyle("TitleGreen", parent=styles["Heading1"], textColor=GREEN, fontSize=20, spaceAfter=4)
+    sub_style = ParagraphStyle("Sub", parent=styles["Normal"], textColor=GRAY, fontSize=10, spaceAfter=10)
+    h2_style = ParagraphStyle("H2", parent=styles["Heading2"], textColor=GOLD, fontSize=14, spaceAfter=6, spaceBefore=10)
+    body_style = ParagraphStyle("Body", parent=styles["Normal"], fontSize=10, leading=14)
+
+    elements = []
+
+    # Header
+    elements.append(Paragraph("Expediente de Empleado", title_style))
+    elements.append(Paragraph("Conactivos — Departamento de Recursos Humanos", sub_style))
+
+    # Profile table
+    elements.append(Paragraph("Datos Personales", h2_style))
+    role_label = "Administrador" if user.get("role") == "admin" else "Empleado"
+    profile_rows = [
+        ["Nombre completo", str(user.get("name", "—"))],
+        ["Correo", str(user.get("email", "—"))],
+        ["Cargo", str(user.get("position", "—"))],
+        ["Rol", role_label],
+        ["Teléfono", str(user.get("phone") or "—")],
+        ["Fecha de nacimiento", str(user.get("birthdate") or "—")],
+        ["Fecha de ingreso", str(user.get("hire_date") or "—")],
+        ["Empleado del mes", "Sí" if user.get("is_employee_of_month") else "No"],
+        ["ID interno", str(user.get("_id"))],
+    ]
+    t = Table(profile_rows, colWidths=[50 * mm, 110 * mm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f9fafb")),
+        ("TEXTCOLOR", (0, 0), (0, -1), GRAY),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("ROWBACKGROUNDS", (1, 0), (1, -1), [colors.white, colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(t)
+
+    # Leave history
+    elements.append(Paragraph(f"Historial de Permisos y Ausencias ({len(leaves)})", h2_style))
+    if not leaves:
+        elements.append(Paragraph("<i>Sin registros de permisos.</i>", body_style))
+    else:
+        rows = [["Tipo", "Desde", "Hasta", "Estado", "Motivo"]]
+        type_map = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso"}
+        status_map = {"pending": "Pendiente", "approved": "Aprobada", "rejected": "Rechazada"}
+        for lv in leaves:
+            rows.append([
+                type_map.get(lv.get("type"), lv.get("type", "—")),
+                str(lv.get("start_date", "—")),
+                str(lv.get("end_date", "—")),
+                status_map.get(lv.get("status"), lv.get("status", "—")),
+                Paragraph(escape_pdf(str(lv.get("reason", "") or "—")), body_style),
+            ])
+        lt = Table(rows, colWidths=[25 * mm, 25 * mm, 25 * mm, 25 * mm, 60 * mm], repeatRows=1)
+        lt.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(lt)
+
+    # Kudos received
+    elements.append(Paragraph(f"Likes Recibidos ({len(kudos_received)})", h2_style))
+    if not kudos_received:
+        elements.append(Paragraph("<i>Aún no ha recibido likes.</i>", body_style))
+    else:
+        rows = [["De", "Categoría", "Mensaje", "Fecha"]]
+        for k in kudos_received:
+            created = k.get("created_at")
+            date_str = created.strftime("%Y-%m-%d") if hasattr(created, "strftime") else str(created)[:10]
+            rows.append([
+                str(k.get("from_user_name", "—")),
+                str(k.get("category", "—")),
+                Paragraph(escape_pdf(str(k.get("message", "—"))), body_style),
+                date_str,
+            ])
+        kt = Table(rows, colWidths=[35 * mm, 25 * mm, 75 * mm, 25 * mm], repeatRows=1)
+        kt.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 5),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(kt)
+
+    # Kudos sent
+    elements.append(Paragraph(f"Likes Enviados ({len(kudos_sent)})", h2_style))
+    if not kudos_sent:
+        elements.append(Paragraph("<i>No ha enviado likes.</i>", body_style))
+    else:
+        rows = [["Para", "Categoría", "Mensaje", "Fecha"]]
+        for k in kudos_sent:
+            created = k.get("created_at")
+            date_str = created.strftime("%Y-%m-%d") if hasattr(created, "strftime") else str(created)[:10]
+            rows.append([
+                str(k.get("to_user_name", "—")),
+                str(k.get("category", "—")),
+                Paragraph(escape_pdf(str(k.get("message", "—"))), body_style),
+                date_str,
+            ])
+        kt = Table(rows, colWidths=[35 * mm, 25 * mm, 75 * mm, 25 * mm], repeatRows=1)
+        kt.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), GREEN),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e5e7eb")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        elements.append(kt)
+
+    # Footer
+    footer_style = ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=GRAY, spaceBefore=16)
+    elements.append(Paragraph(
+        f"Documento generado el {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC por {current_user.get('name')} ({current_user.get('email')}). "
+        "Confidencial — Uso exclusivo del Dpto. de RRHH.",
+        footer_style,
+    ))
+
+    doc.build(elements)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    safe_name = (user.get("name") or "empleado").replace(" ", "_").replace("/", "-")
+    filename = f"Expediente_{safe_name}_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def escape_pdf(s: str) -> str:
+    """Escape special chars for ReportLab Paragraph."""
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
 @api_router.delete("/users/{user_id}")
 async def delete_user(user_id: str, current_user: dict = Depends(require_admin)):
     """Delete an employee or admin. Admin-only. Cannot delete yourself.
@@ -478,8 +735,15 @@ async def create_leave_request(
     
     result = await db.leave_requests.insert_one(request_dict)
     
-    # Send notifications to all admins
+    # Send notifications and emails to all admins
     admins = await db.users.find({"role": "admin"}).to_list(100)
+    subject, html = tpl_leave_created(
+        employee_name=current_user["name"],
+        leave_type=request_data.type,
+        start_date=request_data.start_date,
+        end_date=request_data.end_date,
+        reason=request_data.reason or "",
+    )
     for admin in admins:
         notification = {
             "user_id": str(admin["_id"]),
@@ -490,6 +754,12 @@ async def create_leave_request(
             "created_at": datetime.utcnow()
         }
         await db.notifications.insert_one(notification)
+        # Fire-and-forget email (errors are swallowed inside send_email)
+        if admin.get("email"):
+            try:
+                await send_email(to=admin["email"], subject=subject, html=html)
+            except Exception as _e:
+                logger.warning(f"Failed sending leave email to admin: {_e}")
     
     request_dict["_id"] = str(result.inserted_id)
     return request_dict
@@ -542,7 +812,7 @@ async def approve_reject_leave_request(
         }}
     )
     
-    # Send notification to the employee
+    # Send notification + email to the employee
     notification = {
         "user_id": request["user_id"],
         "title": "Solicitud de permiso actualizada",
@@ -552,6 +822,22 @@ async def approve_reject_leave_request(
         "created_at": datetime.utcnow()
     }
     await db.notifications.insert_one(notification)
+
+    # Email the employee
+    try:
+        employee = await db.users.find_one({"_id": ObjectId(request["user_id"])})
+        if employee and employee.get("email"):
+            subject, html = tpl_leave_decision(
+                employee_name=employee["name"],
+                leave_type=request.get("type", "normal"),
+                status=approval_data.status,
+                start_date=request.get("start_date", ""),
+                end_date=request.get("end_date", ""),
+                admin_name=current_user["name"],
+            )
+            await send_email(to=employee["email"], subject=subject, html=html)
+    except Exception as _e:
+        logger.warning(f"Failed sending leave decision email: {_e}")
     
     return {"message": f"Request {approval_data.status} successfully"}
 
@@ -899,16 +1185,31 @@ async def create_kudo(kudo_data: KudoCreate, current_user: dict = Depends(get_cu
     
     result = await db.kudos.insert_one(kudo_dict)
     
-    # Notify recipient
-    notification = {
-        "user_id": kudo_data.to_user_id,
-        "title": "¡Recibiste un Like!",
-        "message": f"{current_user['name']} te ha dado un like: {kudo_data.message[:50]}",
-        "type": "kudo",
-        "read": False,
-        "created_at": datetime.utcnow()
-    }
-    await db.notifications.insert_one(notification)
+    # Notify ALL users (except the sender) — recipient gets a personalized title/message
+    all_users = await db.users.find({}, {"_id": 1}).to_list(1000)
+    now = datetime.utcnow()
+    notifications_batch = []
+    for u in all_users:
+        uid = str(u["_id"])
+        if uid == current_user["_id"]:
+            continue
+        is_recipient = uid == kudo_data.to_user_id
+        if is_recipient:
+            title = "¡Recibiste un Like!"
+            message = f"{current_user['name']} te ha dado un like: {kudo_data.message[:60]}"
+        else:
+            title = "Nuevo Like en el equipo"
+            message = f"{current_user['name']} le dio un like a {to_user['name']}"
+        notifications_batch.append({
+            "user_id": uid,
+            "title": title,
+            "message": message,
+            "type": "kudo",
+            "read": False,
+            "created_at": now,
+        })
+    if notifications_batch:
+        await db.notifications.insert_many(notifications_batch)
     
     kudo_dict["_id"] = str(result.inserted_id)
     return kudo_dict

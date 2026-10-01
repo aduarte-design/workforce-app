@@ -8,13 +8,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Modal,
+  TextInput,
+  Platform,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getUser, getUserKudos, setEmployeeOfMonth, deleteUser } from '@/src/utils/api';
+import { getUser, getUserKudos, setEmployeeOfMonth, deleteUser, updateUser, downloadUserPdf } from '@/src/utils/api';
 
 const CATEGORY_INFO: any = {
   teamwork: { label: 'Trabajo en Equipo', color: '#3b82f6' },
@@ -33,6 +36,9 @@ export default function EmployeeDetailScreen() {
   const [kudos, setKudos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showHireDateModal, setShowHireDateModal] = useState(false);
+  const [hireDateInput, setHireDateInput] = useState('');
+  const [savingHireDate, setSavingHireDate] = useState(false);
 
   const isSelf = user?._id === id;
 
@@ -81,22 +87,60 @@ export default function EmployeeDetailScreen() {
     );
   };
 
+  const openHireDateModal = () => {
+    setHireDateInput(employee?.hire_date || '');
+    setShowHireDateModal(true);
+  };
+
+  const saveHireDate = async () => {
+    const value = hireDateInput.trim();
+    // Validate YYYY-MM-DD
+    if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      showAlert('Formato inválido', 'Usa el formato AAAA-MM-DD (ej: 2024-03-15)');
+      return;
+    }
+    setSavingHireDate(true);
+    try {
+      await updateUser(id as string, { hire_date: value || null });
+      setShowHireDateModal(false);
+      loadEmployee();
+    } catch (e: any) {
+      showAlert('Error', e?.response?.data?.detail || 'No se pudo guardar la fecha');
+    } finally {
+      setSavingHireDate(false);
+    }
+  };
+
   const handleDelete = () => {
     if (!employee) return;
     const roleWord = employee.role === 'admin' ? 'administrador' : 'empleado';
+    const safeName = (employee.name || 'empleado').replace(/\s+/g, '_');
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const filename = `Expediente_${safeName}_${today}.pdf`;
+
     showAlert(
       `Eliminar ${roleWord}`,
-      `¿Seguro que quieres eliminar a ${employee.name}? Esta acción no se puede deshacer y borrará también sus permisos, likes y notificaciones.`,
+      `Antes de eliminar a ${employee.name} se descargará automáticamente un PDF con todo su expediente (datos personales, permisos y likes). Esta acción es irreversible.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: 'Descargar PDF y eliminar',
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
             try {
+              // 1. Download the PDF first (so admin always has the record)
+              try {
+                await downloadUserPdf(id as string, filename);
+              } catch (pdfErr: any) {
+                setIsDeleting(false);
+                showAlert('Error', 'No se pudo generar el PDF. Eliminación cancelada.');
+                return;
+              }
+
+              // 2. Then delete the user
               await deleteUser(id as string);
-              showAlert('Eliminado', `${employee.name} ha sido eliminado correctamente`);
+              showAlert('Eliminado', `${employee.name} ha sido eliminado. El PDF fue descargado.`);
               router.back();
             } catch (error: any) {
               const detail = error?.response?.data?.detail || error?.message || 'No se pudo eliminar el usuario';
@@ -156,7 +200,7 @@ export default function EmployeeDetailScreen() {
             </View>
           )}
 
-          {isAdmin && !employee.is_employee_of_month && employee.role === 'employee' && (
+          {isAdmin && !employee.is_employee_of_month && (
             <TouchableOpacity
               style={styles.employeeOfMonthBtn}
               onPress={handleSetEmployeeOfMonth}
@@ -199,15 +243,24 @@ export default function EmployeeDetailScreen() {
             </View>
           )}
 
-          {employee.hire_date && (
-            <View style={styles.infoRow}>
-              <Ionicons name="briefcase-outline" size={20} color="#666" />
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Fecha de Ingreso</Text>
-                <Text style={styles.infoValue}>{employee.hire_date}</Text>
-              </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="briefcase-outline" size={20} color="#666" />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoLabel}>Fecha de Ingreso</Text>
+              <Text style={[styles.infoValue, !employee.hire_date && styles.infoValueMuted]}>
+                {employee.hire_date || 'No establecida'}
+              </Text>
             </View>
-          )}
+            {isAdmin && (
+              <TouchableOpacity
+                style={styles.editIconBtn}
+                onPress={openHireDateModal}
+                testID="edit-hire-date-btn"
+              >
+                <Ionicons name="pencil" size={16} color="#b68a2e" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Kudos Received */}
@@ -257,6 +310,52 @@ export default function EmployeeDetailScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Hire date edit modal */}
+      <Modal
+        visible={showHireDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHireDateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Fecha de ingreso</Text>
+            <Text style={styles.modalHint}>Formato: AAAA-MM-DD (ej: 2024-03-15)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={hireDateInput}
+              onChangeText={setHireDateInput}
+              placeholder="2024-03-15"
+              placeholderTextColor="#9ca3af"
+              autoCapitalize="none"
+              keyboardType={Platform.OS === 'web' ? 'default' : 'numbers-and-punctuation'}
+              testID="hire-date-input"
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                onPress={() => setShowHireDateModal(false)}
+                disabled={savingHireDate}
+              >
+                <Text style={styles.modalBtnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary, savingHireDate && { opacity: 0.6 }]}
+                onPress={saveHireDate}
+                disabled={savingHireDate}
+                testID="save-hire-date-btn"
+              >
+                {savingHireDate ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Guardar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -460,5 +559,81 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  infoValueMuted: {
+    color: '#9ca3af',
+    fontStyle: 'italic',
+  },
+  editIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#fef3c7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#122c2a',
+    marginBottom: 4,
+  },
+  modalHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 14,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#122c2a',
+    backgroundColor: '#f9fafb',
+    marginBottom: 18,
+  },
+  modalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnGhost: {
+    backgroundColor: '#f3f4f6',
+  },
+  modalBtnGhostText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalBtnPrimary: {
+    backgroundColor: '#122c2a',
+  },
+  modalBtnPrimaryText: {
+    color: '#b68a2e',
+    fontSize: 14,
+    fontWeight: '800',
   },
 });

@@ -73,6 +73,41 @@ export const deleteUser = async (userId: string) => {
   return response.data;
 };
 
+export const getUserPdfUrl = (userId: string) => `${API_URL}/api/users/${userId}/export-pdf`;
+
+export const downloadUserPdf = async (userId: string, filename = 'empleado.pdf') => {
+  const token = await storage.secureGet('auth_token', null);
+  const resp = await fetch(getUserPdfUrl(userId), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!resp.ok) throw new Error('No se pudo generar el PDF');
+  const blob = await resp.blob();
+  // Web: trigger browser download
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    return { ok: true };
+  }
+  // Native fallback: just return the blob (caller should use expo-file-system)
+  return { ok: true, blob };
+};
+
+export const requestPasswordReset = async (email: string) => {
+  const response = await api.post('/auth/password-reset/request', { email });
+  return response.data;
+};
+
+export const confirmPasswordReset = async (token: string, newPassword: string) => {
+  const response = await api.post('/auth/password-reset/confirm', { token, new_password: newPassword });
+  return response.data;
+};
+
 // Leave Requests
 export const getLeaveRequests = async () => {
   const response = await api.get('/leave-requests');

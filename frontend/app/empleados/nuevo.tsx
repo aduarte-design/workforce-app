@@ -28,9 +28,11 @@ export default function NewEmployeeScreen() {
     position: '',
     phone: '',
     birthdate: new Date(1990, 0, 1),
+    hire_date: new Date(),
     role: 'employee' as 'employee' | 'admin',
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showHireDatePicker, setShowHireDatePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCreate = async () => {
@@ -61,6 +63,7 @@ export default function NewEmployeeScreen() {
         position: form.position.trim(),
         phone: form.phone.trim() || undefined,
         birthdate: form.birthdate.toISOString().split('T')[0],
+        hire_date: form.hire_date.toISOString().split('T')[0],
         role: form.role,
       });
 
@@ -245,6 +248,38 @@ export default function NewEmployeeScreen() {
                 setShowDatePicker(Platform.OS === 'ios');
                 if (date) {
                   setForm({ ...form, birthdate: date });
+                }
+              }}
+            />
+          )}
+
+          {/* Hire date */}
+          <Text style={styles.label}>Fecha de Ingreso</Text>
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => setShowHireDatePicker(true)}
+            testID="hire-date-picker-btn"
+          >
+            <Ionicons name="briefcase-outline" size={20} color="#666" />
+            <Text style={styles.dateText}>
+              {form.hire_date.toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Text>
+          </TouchableOpacity>
+
+          {showHireDatePicker && (
+            <DateTimePicker
+              value={form.hire_date}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              maximumDate={new Date()}
+              onChange={(event, date) => {
+                setShowHireDatePicker(Platform.OS === 'ios');
+                if (date) {
+                  setForm({ ...form, hire_date: date });
                 }
               }}
             />

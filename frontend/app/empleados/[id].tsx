@@ -40,6 +40,20 @@ export default function EmployeeDetailScreen() {
   const [hireDateInput, setHireDateInput] = useState('');
   const [savingHireDate, setSavingHireDate] = useState(false);
 
+  // Full admin-edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    position: '',
+    phone: '',
+    birthdate: '',
+    hire_date: '',
+    role: 'employee' as 'employee' | 'admin',
+    leadership_statement: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const isSelf = user?._id === id;
 
   useEffect(() => {
@@ -90,6 +104,63 @@ export default function EmployeeDetailScreen() {
   const openHireDateModal = () => {
     setHireDateInput(employee?.hire_date || '');
     setShowHireDateModal(true);
+  };
+
+  const openEditModal = () => {
+    if (!employee) return;
+    setEditForm({
+      name: employee.name || '',
+      email: employee.email || '',
+      position: employee.position || '',
+      phone: employee.phone || '',
+      birthdate: employee.birthdate || '',
+      hire_date: employee.hire_date || '',
+      role: employee.role || 'employee',
+      leadership_statement: employee.leadership_statement || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const saveEdit = async () => {
+    // Minimal validation
+    if (!editForm.name.trim() || !editForm.email.trim() || !editForm.position.trim()) {
+      showAlert('Faltan datos', 'Nombre, correo y cargo son obligatorios.');
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(editForm.email.trim())) {
+      showAlert('Correo inválido', 'Ingresa un correo con formato válido.');
+      return;
+    }
+    for (const key of ['birthdate', 'hire_date'] as const) {
+      const v = (editForm[key] || '').trim();
+      if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        showAlert('Formato inválido', `${key === 'birthdate' ? 'Fecha de nacimiento' : 'Fecha de ingreso'}: usa AAAA-MM-DD`);
+        return;
+      }
+    }
+    setSavingEdit(true);
+    try {
+      const payload: any = {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        position: editForm.position.trim(),
+        phone: editForm.phone.trim(),
+        birthdate: editForm.birthdate.trim() || null,
+        hire_date: editForm.hire_date.trim() || null,
+        leadership_statement: editForm.leadership_statement.trim(),
+      };
+      // Only send role change if different, and only if admin (frontend-side gate)
+      if (isAdmin && editForm.role !== employee.role) {
+        payload.role = editForm.role;
+      }
+      await updateUser(id as string, payload);
+      setShowEditModal(false);
+      loadEmployee();
+    } catch (e: any) {
+      showAlert('Error', e?.response?.data?.detail || 'No se pudo guardar');
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const saveHireDate = async () => {
@@ -171,7 +242,17 @@ export default function EmployeeDetailScreen() {
           <Ionicons name="arrow-back" size={24} color="#122c2a" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Empleado</Text>
-        <View style={{ width: 44 }} />
+        {isAdmin ? (
+          <TouchableOpacity
+            style={styles.headerEditBtn}
+            onPress={openEditModal}
+            testID="open-edit-modal-btn"
+          >
+            <Ionicons name="create-outline" size={18} color="#fff" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -210,6 +291,19 @@ export default function EmployeeDetailScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Leadership Statement — admin-set, visible to the employee */}
+        {!!employee.leadership_statement && (
+          <View style={styles.leadershipCard}>
+            <View style={styles.leadershipHeader}>
+              <View style={styles.leadershipIconWrap}>
+                <Ionicons name="trophy" size={16} color="#b68a2e" />
+              </View>
+              <Text style={styles.leadershipTitle}>Tu lideras con...</Text>
+            </View>
+            <Text style={styles.leadershipText}>{employee.leadership_statement}</Text>
+          </View>
+        )}
 
         {/* Info Card */}
         <View style={styles.card}>
@@ -310,6 +404,150 @@ export default function EmployeeDetailScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
+
+      {/* Full admin edit modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCardLarge}>
+            <View style={styles.modalGrabber} />
+            <Text style={styles.modalTitle}>Editar perfil</Text>
+            <ScrollView
+              style={{ maxHeight: 460 }}
+              contentContainerStyle={{ paddingBottom: 10 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.fieldLabel}>Nombre completo</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.name}
+                onChangeText={(t) => setEditForm({ ...editForm, name: t })}
+                placeholder="Nombre y apellido"
+                placeholderTextColor="#9ca3af"
+                testID="edit-name-input"
+              />
+
+              <Text style={styles.fieldLabel}>Correo</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.email}
+                onChangeText={(t) => setEditForm({ ...editForm, email: t })}
+                placeholder="correo@conactivos.com"
+                placeholderTextColor="#9ca3af"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                testID="edit-email-input"
+              />
+
+              <Text style={styles.fieldLabel}>Cargo</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.position}
+                onChangeText={(t) => setEditForm({ ...editForm, position: t })}
+                placeholder="Cargo o puesto"
+                placeholderTextColor="#9ca3af"
+                testID="edit-position-input"
+              />
+
+              <Text style={styles.fieldLabel}>Teléfono</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.phone}
+                onChangeText={(t) => setEditForm({ ...editForm, phone: t })}
+                placeholder="300 123 4567"
+                placeholderTextColor="#9ca3af"
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.fieldLabel}>Fecha de nacimiento (AAAA-MM-DD)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.birthdate}
+                onChangeText={(t) => setEditForm({ ...editForm, birthdate: t })}
+                placeholder="1990-05-20"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.fieldLabel}>Fecha de ingreso (AAAA-MM-DD)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editForm.hire_date}
+                onChangeText={(t) => setEditForm({ ...editForm, hire_date: t })}
+                placeholder="2024-03-15"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="none"
+              />
+
+              <Text style={styles.fieldLabel}>Rol</Text>
+              <View style={styles.roleRow}>
+                {(['employee', 'admin'] as const).map((r) => {
+                  const active = editForm.role === r;
+                  return (
+                    <TouchableOpacity
+                      key={r}
+                      style={[styles.rolePill, active && styles.rolePillActive]}
+                      onPress={() => setEditForm({ ...editForm, role: r })}
+                      disabled={isSelf}
+                    >
+                      <Text style={[styles.rolePillText, active && styles.rolePillTextActive]}>
+                        {r === 'admin' ? 'Administrador' : 'Empleado'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {isSelf && (
+                <Text style={styles.roleHint}>No puedes cambiar tu propio rol.</Text>
+              )}
+
+              <Text style={styles.fieldLabel}>Tu lideras con...</Text>
+              <Text style={styles.fieldHint}>
+                Frase corta que resume el estilo de liderazgo o fortaleza del colaborador.
+                Solo administradores pueden editarla.
+              </Text>
+              <TextInput
+                style={[styles.fieldInput, styles.fieldInputMultiline]}
+                value={editForm.leadership_statement}
+                onChangeText={(t) => setEditForm({ ...editForm, leadership_statement: t })}
+                placeholder="Ej: Empatía y escucha activa"
+                placeholderTextColor="#9ca3af"
+                multiline
+                numberOfLines={3}
+                maxLength={160}
+                testID="edit-leadership-input"
+              />
+            </ScrollView>
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                onPress={() => setShowEditModal(false)}
+                disabled={savingEdit}
+              >
+                <Text style={styles.modalBtnGhostText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary, savingEdit && { opacity: 0.6 }]}
+                onPress={saveEdit}
+                disabled={savingEdit}
+                testID="save-edit-btn"
+              >
+                {savingEdit ? (
+                  <ActivityIndicator color="#b68a2e" />
+                ) : (
+                  <Text style={styles.modalBtnPrimaryText}>Guardar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Hire date edit modal */}
       <Modal
@@ -635,5 +873,128 @@ const styles = StyleSheet.create({
     color: '#b68a2e',
     fontSize: 14,
     fontWeight: '800',
+  },
+  headerEditBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#122c2a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  leadershipCard: {
+    backgroundColor: '#122c2a',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+  },
+  leadershipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  leadershipIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(182,138,46,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  leadershipTitle: {
+    color: '#b68a2e',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  leadershipText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  modalCardLarge: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    paddingTop: 8,
+    width: '100%',
+    maxWidth: 540,
+    alignSelf: 'center',
+  },
+  modalGrabber: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e7eb',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#122c2a',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  fieldHint: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 6,
+    lineHeight: 15,
+  },
+  fieldInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#122c2a',
+    backgroundColor: '#f9fafb',
+  },
+  fieldInputMultiline: {
+    minHeight: 72,
+    textAlignVertical: 'top',
+    paddingTop: 10,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  rolePill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    alignItems: 'center',
+  },
+  rolePillActive: {
+    backgroundColor: '#122c2a',
+    borderColor: '#122c2a',
+  },
+  rolePillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  rolePillTextActive: {
+    color: '#b68a2e',
+  },
+  roleHint: {
+    fontSize: 11,
+    color: '#9ca3af',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

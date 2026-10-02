@@ -99,6 +99,7 @@ class UserRegister(BaseModel):
     birthdate: Optional[str] = None
     hire_date: Optional[str] = None
     profile_photo: Optional[str] = None
+    leadership_statement: Optional[str] = None
 
 class LeaveRequest(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")
@@ -489,23 +490,49 @@ async def get_user(user_id: str, current_user: dict = Depends(get_current_user))
 @api_router.put("/users/{user_id}")
 async def update_user(user_id: str, updates: dict, current_user: dict = Depends(get_current_user)):
     # Users can only update themselves unless they're admin
-    if current_user["role"] != "admin" and current_user["_id"] != user_id:
+    is_admin = current_user["role"] == "admin"
+    if not is_admin and current_user["_id"] != user_id:
         raise HTTPException(status_code=403, detail="Not authorized")
     
     if not ObjectId.is_valid(user_id):
         raise HTTPException(status_code=400, detail="Invalid user ID")
     
-    # Don't allow password or role updates through this endpoint
+    # Never allow raw password updates through this endpoint (use /auth/change-password)
     updates.pop("password", None)
-    updates.pop("role", None)
     updates.pop("_id", None)
     
+    if not is_admin:
+        # Non-admins (editing themselves) cannot change role or leadership_statement
+        updates.pop("role", None)
+        updates.pop("leadership_statement", None)
+        updates.pop("is_employee_of_month", None)
+        updates.pop("must_change_password", None)
+    else:
+        # Admin: validate role value if present
+        if "role" in updates and updates["role"] not in ("admin", "employee"):
+            raise HTTPException(status_code=400, detail="Rol inválido")
+
+    # Normalize empty strings to None for nullable fields
+    for optional_field in ("phone", "birthdate", "hire_date", "leadership_statement"):
+        if optional_field in updates and isinstance(updates[optional_field], str) and updates[optional_field].strip() == "":
+            updates[optional_field] = None
+
+    # Normalize email to lowercase + check uniqueness
+    if "email" in updates and isinstance(updates["email"], str):
+        updates["email"] = updates["email"].strip().lower()
+        existing = await db.users.find_one({"email": updates["email"], "_id": {"$ne": ObjectId(user_id)}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Ese correo ya está registrado para otro usuario")
+
+    if not updates:
+        return {"message": "Sin cambios"}
+
     result = await db.users.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": updates}
     )
     
-    if result.modified_count == 0:
+    if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="User not found")
     
     return {"message": "User updated successfully"}

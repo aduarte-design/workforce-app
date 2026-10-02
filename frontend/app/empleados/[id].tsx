@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getUser, getUserKudos, setEmployeeOfMonth, deleteUser, updateUser, downloadUserPdf } from '@/src/utils/api';
+import MoodCard from '@/src/components/MoodCard';
 
 const CATEGORY_INFO: any = {
   teamwork: { label: 'Trabajo en Equipo', color: '#3b82f6' },
@@ -303,6 +304,23 @@ export default function EmployeeDetailScreen() {
             </View>
             <Text style={styles.leadershipText}>{employee.leadership_statement}</Text>
           </View>
+        )}
+
+        {/* Mood — editable only by the owner. For admins viewing other profiles it's read-only. */}
+        {(isSelf || employee.mood) && (
+          <MoodCard
+            value={employee.mood}
+            editable={isSelf}
+            onSave={async (newMood) => {
+              try {
+                await updateUser(id as string, { mood: newMood });
+                setEmployee({ ...employee, mood: newMood });
+              } catch (e: any) {
+                showAlert('Error', e?.response?.data?.detail || 'No se pudo guardar');
+                throw e;
+              }
+            }}
+          />
         )}
 
         {/* Info Card */}

@@ -15,8 +15,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@/src/contexts/AuthContext';
-import { getUser, updateProfilePhoto, getUserKudos } from '@/src/utils/api';
+import { getUser, updateProfilePhoto, getUserKudos, updateUser } from '@/src/utils/api';
 import { storage } from '@/src/utils/storage';
+import MoodCard from '@/src/components/MoodCard';
 
 const CATEGORY_INFO: any = {
   teamwork: { label: 'Trabajo en Equipo', color: '#3b82f6' },
@@ -158,6 +159,20 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
+
+        {/* Mood (editable by owner) */}
+        <MoodCard
+          value={profile.mood}
+          onSave={async (newMood) => {
+            try {
+              await updateUser(profile._id, { mood: newMood });
+              setProfile({ ...profile, mood: newMood });
+            } catch (e: any) {
+              showAlert('Error', e?.response?.data?.detail || 'No se pudo guardar');
+              throw e;
+            }
+          }}
+        />
 
         {/* Info Card */}
         <View style={styles.card}>

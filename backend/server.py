@@ -471,6 +471,8 @@ async def get_users(current_user: dict = Depends(get_current_user)):
         user.setdefault("birthdate", None)
         user.setdefault("hire_date", None)
         user.setdefault("is_employee_of_month", False)
+        user.setdefault("mood", None)
+        user.setdefault("leadership_statement", None)
         result.append(user)
     return result
 
@@ -500,6 +502,11 @@ async def update_user(user_id: str, updates: dict, current_user: dict = Depends(
     # Never allow raw password updates through this endpoint (use /auth/change-password)
     updates.pop("password", None)
     updates.pop("_id", None)
+    
+    # Mood is strictly personal — only the owner can change it
+    is_self = current_user["_id"] == user_id
+    if not is_self:
+        updates.pop("mood", None)
     
     if not is_admin:
         # Non-admins (editing themselves) cannot change role or leadership_statement

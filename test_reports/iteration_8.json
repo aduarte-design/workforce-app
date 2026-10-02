@@ -1,0 +1,41 @@
+{
+  "summary": "Visual regression fix verified for employee dropdown overflow bug in Cápsulas and Likes (Kudos) modals. Backend sanity: 3/3 regression tests passing (GET /api/users returns 13 users, POST /api/kudos works, POST /api/capsules works). Frontend visual: both screens now bound the employee dropdown to maxHeight=220px with vertical scroll (overflow:'hidden auto' on web = overflow-x:hidden + overflow-y:auto, equivalent to the requested overflow:'hidden'+scroll). KUDOS: scroll container height=220, scrollHeight=758, clientHeight=218 (12 employees scrollable inside), dropdown bottom=482.4 and 'Categoría' label top=498.4 → NO overlap; 'Mensaje' label (y=689) and 'Enviar Like' submit button remain reachable below. CAPSULAS: scroll container height=220, scrollHeight=784, clientHeight=218 (12 employees + current user scrollable), dropdown bottom=701.6 and 'Descripción (Opcional)' top=717.6 → NO overlap; 'Crear Cápsula' button top=865.6 remains below. Both tested: open dropdown → scroll inside (scrollTop=150 confirmed) → tap employee → dropdown closes and selected name appears in the selector button (verified Juan Pérez in Likes, Laura Gómez in Cápsulas). Fix is fully effective.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "get_current_user (server.py)",
+        "issue": "(Carried over from iteration_6/7) `except jwt.JWTError:` is invalid - PyJWT does not expose JWTError. Replace with `except jwt.PyJWTError:` and add `except HTTPException: raise`. Not triggered by this fix but still latent."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dropdown_regression.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix carried-over bug: in /app/backend/server.py get_current_user, change `except jwt.JWTError:` to `except jwt.PyJWTError:` and add `except HTTPException: raise` before the JWT catch so 401s don't become 500s.",
+    "Optional: add testID attributes to the + add button in Cápsulas header and to the 'Seleccionar empleado' / 'Selecciona un compañero' selector buttons for easier future automation (currently had to use coordinate click and text search)."
+  ],
+  "critical_code_review_comments": [
+    "Dropdown fix is clean and minimal: ScrollView with nestedScrollEnabled + keyboardShouldPersistTaps='handled' + maxHeight:220 + overflow:'hidden' is correct for RN+web. On web RN compiles overflow:'hidden' + ScrollView into CSS 'overflow: hidden auto' which bounds the box and provides vertical scroll - exactly the intended behaviour.",
+    "Both files duplicate identical employeeList/employeeItem styles. Consider extracting an <EmployeePickerDropdown /> component to avoid future drift between kudos.tsx and capsulas.tsx.",
+    "In capsulas.tsx line 82 the default responsible_employee_id is set to user?._id, which is why the admin's own name shows pre-selected ('María García') instead of the placeholder 'Seleccionar empleado'. This is pre-existing (not part of this fix) but worth confirming it's the intended UX - current user ends up as their own 'responsable' by default on new capsules."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_dropdown_regression.py (new - 3 regression tests)"
+  ],
+  "success_rate": {"backend": "100% (3/3 regression)", "frontend": "100% (both dropdowns bounded, scrollable, no overlap, selection works)"},
+  "seed_data_creation": "Reused existing seed (13 users) from POST /api/seed; one TEST_dropdown_fix capsule created during regression test is deleted immediately. One TEST kudo was created and left (kudos have no delete endpoint used here).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Dropdown overflow fix verified end-to-end. Kudos & Capsulas modals correctly bound the employee list to 220px with vertical scroll via ScrollView+overflow:hidden. Backend /api/users returns 13 seeded users. Known pre-existing latent bug: server.py get_current_user uses invalid `except jwt.JWTError` - will 500 instead of 401 on invalid/expired tokens. Test credentials: admin1@conactivos.com/admin123, juan.perez@conactivos.com/employee123.",
+  "rca_of_issue": "Reported bug: employee dropdown in Capsulas & Likes modals visually overflowed/overlapped widgets below (Categoría, Mensaje, submit button, Descripción, Crear Cápsula). RCA: inline <View style={{maxHeight:200}}> with children TouchableOpacity items but no overflow:'hidden' and no scroll - on React Native Web the default overflow is 'visible', so when 12 items exceeded 200px they rendered OUTSIDE the box, covering elements below. Fix (main agent) in both files: (1) replaced the View with ScrollView + nestedScrollEnabled + keyboardShouldPersistTaps='handled'; (2) added overflow:'hidden' to employeeList style and increased maxHeight to 220; (3) added employeeListContent paddingBottom. Verification: computed CSS now shows overflow:'hidden auto' (hidden-x, auto-y) with scrollHeight 758/784px vs clientHeight 218px (fully scrollable); next widget below sits BELOW the dropdown's bottom in both screens; tap-to-select still closes the dropdown and populates the selector. Backend untouched - users/kudos/capsules endpoints all green."
+}

@@ -363,7 +363,13 @@ export default function CapsulasScreen() {
               </TouchableOpacity>
 
               {showEmployeeSelect && (
-                <View style={styles.employeeList}>
+                <ScrollView
+                  style={styles.employeeList}
+                  contentContainerStyle={styles.employeeListContent}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator
+                >
                   {employees.map((employee) => (
                     <TouchableOpacity
                       key={employee._id}
@@ -392,7 +398,7 @@ export default function CapsulasScreen() {
                       <Text style={styles.employeeItemPosition}>{employee.position}</Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                </ScrollView>
               )}
 
               <Text style={styles.label}>Descripción (Opcional)</Text>
@@ -649,7 +655,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
     marginTop: 8,
-    maxHeight: 200,
+    maxHeight: 220,
+    overflow: 'hidden',
+  },
+  employeeListContent: {
+    paddingBottom: 4,
   },
   employeeItem: {
     padding: 12,

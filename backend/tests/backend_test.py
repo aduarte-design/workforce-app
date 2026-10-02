@@ -15,6 +15,9 @@ import os
 import pytest
 import requests
 from datetime import datetime
+from motor.motor_asyncio import AsyncIOMotorClient
+import asyncio
+from passlib.context import CryptContext
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://workforce-app-92.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
@@ -404,3 +407,169 @@ class TestPausasActivas:
         assert r1.status_code == 200, r1.text
         after = len(r1.json())
         assert after == 10, f"seed should not touch pausas_activas; before={before} after={after}"
+
+
+# ---------------------- GET /api/users bug fix (iteration 7) ----------------------
+# Bug: capsules/kudos employee picker was dropping records when the DB had users
+# with missing optional fields (position, role, etc.) due to strict Pydantic validation.
+# Fix: /api/users now returns all users unlimited, sorted by name asc, with safe
+# defaults backfilled for missing fields.
+class TestGetUsersAllRecords:
+    MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    DB_NAME = os.environ.get("DB_NAME", "test_database")
+
+    @pytest.fixture(scope="class", autouse=True)
+    def reseed(self, api_client):
+        """Reseed DB to ensure a clean 13-user baseline (seed may have been called elsewhere)."""
+        r = api_client.post(f"{API}/seed")
+        assert r.status_code == 200
+
+    @pytest.fixture(scope="class")
+    def fresh_admin_headers(self, api_client):
+        """Fresh token after reseed."""
+        r = api_client.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        assert r.status_code == 200, r.text
+        return {"Authorization": f"Bearer {r.json()['token']}", "Content-Type": "application/json"}
+
+    def test_requires_auth_without_token(self, api_client):
+        r = api_client.get(f"{API}/users")
+        assert r.status_code in (401, 403), f"expected 401/403; got {r.status_code}"
+
+    def test_returns_exactly_13_users(self, api_client, fresh_admin_headers):
+        r = api_client.get(f"{API}/users", headers=fresh_admin_headers)
+        assert r.status_code == 200, r.text
+        users = r.json()
+        assert isinstance(users, list)
+        assert len(users) == 13, f"expected 13 users (3 admins + 10 employees), got {len(users)}"
+        admins = [u for u in users if u.get("role") == "admin"]
+        employees = [u for u in users if u.get("role") == "employee"]
+        assert len(admins) == 3
+        assert len(employees) == 10
+
+    def test_sorted_alphabetically_by_name(self, api_client, fresh_admin_headers):
+        r = api_client.get(f"{API}/users", headers=fresh_admin_headers)
+        names = [u["name"] for u in r.json()]
+        assert names == sorted(names), f"users should be sorted by name asc; got {names}"
+
+    def test_each_user_has_required_fields(self, api_client, fresh_admin_headers):
+        r = api_client.get(f"{API}/users", headers=fresh_admin_headers)
+        users = r.json()
+        required = ("_id", "email", "name", "position", "role",
+                    "profile_photo", "phone", "birthdate", "hire_date",
+                    "is_employee_of_month")
+        for u in users:
+            for f in required:
+                assert f in u, f"user {u.get('email')} missing key '{f}'"
+            assert isinstance(u["_id"], str)
+            assert isinstance(u["is_employee_of_month"], bool)
+            assert "password" not in u, f"password leaked for {u.get('email')}"
+
+    def test_legacy_user_with_missing_fields_not_dropped(self, api_client, fresh_admin_headers):
+        """Insert a user directly into Mongo WITHOUT position / is_employee_of_month
+        and confirm GET /api/users still returns 14 items and backfills defaults."""
+        pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+        async def _insert_legacy():
+            client = AsyncIOMotorClient(self.MONGO_URL)
+            db = client[self.DB_NAME]
+            # ensure clean
+            await db.users.delete_many({"email": "legacy@conactivos.com"})
+            await db.users.insert_one({
+                "email": "legacy@conactivos.com",
+                "name": "Zulma Legacy",
+                "role": "employee",
+                "password": pwd_ctx.hash("legacypass"),
+            })
+            client.close()
+
+        async def _delete_legacy():
+            client = AsyncIOMotorClient(self.MONGO_URL)
+            db = client[self.DB_NAME]
+            await db.users.delete_many({"email": "legacy@conactivos.com"})
+            client.close()
+
+        try:
+            asyncio.run(_insert_legacy())
+
+            r = api_client.get(f"{API}/users", headers=fresh_admin_headers)
+            assert r.status_code == 200, r.text
+            users = r.json()
+            assert len(users) == 14, (
+                f"legacy user with missing fields dropped by endpoint; got {len(users)}"
+            )
+
+            legacy = next((u for u in users if u["email"] == "legacy@conactivos.com"), None)
+            assert legacy is not None, "Zulma Legacy not returned by /api/users"
+            assert legacy["name"] == "Zulma Legacy"
+            # backfill defaults
+            assert legacy["position"] == "Empleado", f"position should default to 'Empleado'; got {legacy.get('position')!r}"
+            assert legacy["is_employee_of_month"] is False
+            assert legacy["profile_photo"] is None
+            assert legacy["phone"] is None
+            assert legacy["birthdate"] is None
+            assert legacy["hire_date"] is None
+            assert legacy["role"] == "employee"
+            assert "password" not in legacy
+
+            # alphabetic sort should still hold with the new entry
+            names = [u["name"] for u in users]
+            assert names == sorted(names), "users not sorted after legacy insert"
+        finally:
+            asyncio.run(_delete_legacy())
+
+    def test_endpoint_uses_unlimited_to_list(self):
+        """Grep /app/backend/server.py get_users to confirm no 1000-cap."""
+        with open("/app/backend/server.py") as f:
+            src = f.read()
+        # locate get_users function body
+        idx = src.find("async def get_users(")
+        assert idx != -1, "get_users function not found"
+        # take ~2000 chars after
+        chunk = src[idx:idx + 2000]
+        assert "to_list(length=None)" in chunk, "get_users must use to_list(length=None)"
+        assert "to_list(1000)" not in chunk, "get_users still has 1000 cap"
+        assert "response_model=List[UserResponse]" not in chunk, (
+            "get_users should not use strict response_model that drops records"
+        )
+
+    def test_get_user_by_id_still_works(self, api_client, fresh_admin_headers):
+        """Regression: /api/users/{id} still returns a single user."""
+        r = api_client.get(f"{API}/users", headers=fresh_admin_headers)
+        users = r.json()
+        target = next(u for u in users if u["email"] == ADMIN_EMAIL)
+        r2 = api_client.get(f"{API}/users/{target['_id']}", headers=fresh_admin_headers)
+        assert r2.status_code == 200, r2.text
+        single = r2.json()
+        assert single["email"] == ADMIN_EMAIL
+        assert single["_id"] == target["_id"]
+        assert "password" not in single
+
+    def test_capsules_endpoint_reachable(self, api_client, fresh_admin_headers):
+        """Regression: /api/capsules still reachable (does not depend on /api/users)."""
+        r = api_client.get(f"{API}/capsules", headers=fresh_admin_headers)
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_kudos_endpoint_reachable(self, api_client, fresh_admin_headers):
+        """Regression: /api/kudos still reachable."""
+        r = api_client.get(f"{API}/kudos", headers=fresh_admin_headers)
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_create_kudo_still_works_after_fix(self, api_client, fresh_admin_headers):
+        """POST /api/kudos still works end-to-end (needs valid to_user_id from /users)."""
+        r = api_client.post(
+            f"{API}/auth/login",
+            json={"email": EMPLOYEE_EMAIL, "password": EMPLOYEE_PASSWORD},
+        )
+        assert r.status_code == 200
+        emp_headers = {"Authorization": f"Bearer {r.json()['token']}", "Content-Type": "application/json"}
+
+        users = api_client.get(f"{API}/users", headers=fresh_admin_headers).json()
+        laura = next(u for u in users if u["email"] == "laura.gomez@conactivos.com")
+        r = api_client.post(
+            f"{API}/kudos",
+            json={"to_user_id": laura["_id"], "message": "TEST_regression_kudo", "category": "teamwork"},
+            headers=emp_headers,
+        )
+        assert r.status_code == 200, r.text

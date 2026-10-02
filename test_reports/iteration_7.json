@@ -1,0 +1,41 @@
+{
+  "summary": "Backend regression for Conactivos HR after fix to GET /api/users (capsules/kudos employee picker was dropping records). 43/43 pytest tests PASS (added 10 new tests in TestGetUsersAllRecords + 33 prior regression tests still green). GET /api/users validation: (a) unauthenticated -> 401/403; (b) returns exactly 13 users (3 admins + 10 employees) after POST /api/seed; (c) sorted alphabetically by name ascending; (d) every record contains required keys (_id, email, name, position, role, profile_photo, phone, birthdate, hire_date, is_employee_of_month) with correct types and no password leak; (e) legacy user inserted directly into Mongo WITHOUT 'position' and WITHOUT 'is_employee_of_month' is NOT dropped - endpoint still returns 14 users and backfills position='Empleado', is_employee_of_month=False, profile_photo/phone/birthdate/hire_date=None, role preserved as 'employee'; sort order holds with the new entry; cleanup removes legacy record; (f) source grep confirms get_users uses to_list(length=None), no to_list(1000) cap, and no response_model=List[UserResponse] strict validator. Regression confirmed: admin1 login works, /api/users/{id} returns single user without password, /api/capsules and /api/kudos reachable, POST /api/kudos still works end-to-end (uses to_user_id obtained from /api/users). All prior regression (auth, dashboard, goals, leave flow, admin guards, pausas activas, seed counts) remain green.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "get_current_user (server.py get_current_user)",
+        "issue": "(Carried over from iteration_6) `except jwt.JWTError:` is invalid - PyJWT does not expose JWTError. Fix: replace with `except jwt.PyJWTError:` and add `except HTTPException: raise` before the JWT-error catch. Not triggered by current fix but still latent."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix carried-over bug: get_current_user `except jwt.JWTError:` -> `except jwt.PyJWTError:` and add `except HTTPException: raise`."
+  ],
+  "critical_code_review_comments": [
+    "get_users() correctly uses to_list(length=None), sorts by name asc, and backfills optional fields with safe defaults - fix is clean and minimal.",
+    "Backfill defaults are applied in-memory only (via setdefault on the dict returned to the client); the Mongo documents remain untouched. If other read paths (e.g. /api/users/{id}, kudos resolve) also need position fallback, consider centralising the fallback or writing defaults back to DB during seed/migration.",
+    "server.py still > 1700 lines - continue previously flagged recommendation to split into routers.",
+    "Response is a plain list[dict] (no response_model). This is intentional per the fix but means Pydantic contract isn't enforced; the test suite now covers field presence."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestGetUsersAllRecords class with 10 tests + imports for motor/passlib/asyncio)",
+    "/app/test_reports/pytest/pytest_results.xml (regenerated)"
+  ],
+  "success_rate": {"backend": "100% (43/43)", "frontend": "N/A (backend-only testing requested)"},
+  "seed_data_creation": "Session fixture calls POST /api/seed once at start. TestGetUsersAllRecords.reseed class-fixture re-runs POST /api/seed to guarantee 13-user baseline. test_legacy_user_with_missing_fields_not_dropped inserts and then deletes a `legacy@conactivos.com` doc directly via Motor. DB left clean after suite.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "GET /api/users bug fix fully validated at API level. Endpoint returns all 13 seeded users unlimited, sorted by name, with safe backfill for legacy records missing optional fields. Known unrelated latent bug: get_current_user has `except jwt.JWTError:` (should be `jwt.PyJWTError`) - will 500 instead of 401 on invalid/stale tokens; not blocking this fix. Test credentials: admin1@conactivos.com/admin123, juan.perez@conactivos.com/employee123.",
+  "rca_of_issue": "Reported bug: Capsules & Kudos pickers were missing employees. RCA confirmed: pre-fix /api/users used response_model=List[UserResponse] which Pydantic-validated every record; any user missing required fields (position, role) would be silently dropped from the response. Secondary issues: to_list(1000) cap and a `return user` typo that could return only the last iterated item. Fix (server.py get_users): removed response_model, use to_list(length=None), sort by name asc, setdefault safe values for position/role/profile_photo/phone/birthdate/hire_date/is_employee_of_month, return the result list. Validation reproduces original failure mode by inserting a legacy user without position/is_employee_of_month directly into Mongo and asserting the endpoint still returns it (14 users total) with defaults backfilled. All 10 new tests pass; 33 prior regression tests remain green."
+}

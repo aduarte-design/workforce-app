@@ -443,13 +443,28 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 # ==================== USER ROUTES ====================
 
-@api_router.get("/users", response_model=List[UserResponse])
+@api_router.get("/users")
 async def get_users(current_user: dict = Depends(get_current_user)):
-    users = await db.users.find().to_list(1000)
+    """Return ALL users (no limit, no pagination). Used by the capsules & likes
+    screens to populate the employee picker. Sorted alphabetically.
+    """
+    # cursor.to_list(length=None) returns the full result set with no cap
+    users = await db.users.find().sort("name", 1).to_list(length=None)
+    result = []
     for user in users:
         user["_id"] = str(user["_id"])
         user.pop("password", None)
-    return users
+        # Backfill fields that might be missing on legacy / Google-auth records so
+        # no record is accidentally hidden in the picker.
+        user.setdefault("position", "Empleado")
+        user.setdefault("role", "employee")
+        user.setdefault("profile_photo", None)
+        user.setdefault("phone", None)
+        user.setdefault("birthdate", None)
+        user.setdefault("hire_date", None)
+        user.setdefault("is_employee_of_month", False)
+        result.append(user)
+    return result
 
 @api_router.get("/users/{user_id}")
 async def get_user(user_id: str, current_user: dict = Depends(get_current_user)):

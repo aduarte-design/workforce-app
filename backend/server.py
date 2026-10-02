@@ -316,7 +316,8 @@ async def login(credentials: UserLogin):
             "_id": str(user["_id"]),
             "email": user["email"],
             "name": user["name"],
-            "role": user["role"]
+            "role": user["role"],
+            "must_change_password": bool(user.get("must_change_password", False)),
         }
     }
 
@@ -328,57 +329,61 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr
 
 
-class PasswordResetConfirm(BaseModel):
-    token: str
+class PasswordChangeRequest(BaseModel):
     new_password: str
+
+
+def _generate_temp_password(length: int = 10) -> str:
+    """Generate a human-friendly temp password: easy to read, 10 chars.
+    Avoids ambiguous chars (0/O/1/I/l) to reduce typing errors.
+    """
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+    return "".join(_secrets.choice(alphabet) for _ in range(length))
 
 
 @api_router.post("/auth/password-reset/request")
 async def password_reset_request(payload: PasswordResetRequest):
-    """Send a password-reset email if the user exists.
+    """Generate a temp password, replace the user's password with it, email it, and
+    flag the account so the next login forces a password change.
     Always returns 200 to avoid leaking which emails are registered.
     """
     user = await db.users.find_one({"email": payload.email})
     if user:
-        token = _secrets.token_urlsafe(32)
-        await db.password_reset_tokens.insert_one({
-            "token": token,
-            "user_id": str(user["_id"]),
-            "email": user["email"],
-            "expires_at": datetime.utcnow() + timedelta(hours=1),
-            "used": False,
-            "created_at": datetime.utcnow(),
-        })
-        reset_url = f"{APP_PUBLIC_URL}/reset-password?token={token}"
+        temp_pw = _generate_temp_password()
+        hashed = hash_password(temp_pw)
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {
+                "password": hashed,
+                "must_change_password": True,
+                "temp_password_issued_at": datetime.utcnow(),
+            }},
+        )
         try:
-            subject, html = tpl_password_reset(user_name=user["name"], reset_url=reset_url)
+            subject, html = tpl_password_reset(user_name=user["name"], temp_password=temp_pw)
             await send_email(to=user["email"], subject=subject, html=html)
         except Exception as _e:
-            logger.warning(f"Failed sending password-reset email: {_e}")
-    return {"message": "Si el correo está registrado, enviaremos instrucciones para restablecer la contraseña."}
+            logger.warning(f"Failed sending temp-password email: {_e}")
+    return {"message": "Si el correo está registrado, enviaremos una contraseña temporal por correo."}
 
 
-@api_router.post("/auth/password-reset/confirm")
-async def password_reset_confirm(payload: PasswordResetConfirm):
+@api_router.post("/auth/change-password")
+async def change_password(
+    payload: PasswordChangeRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Authenticated user replaces their own password. Clears the `must_change_password`
+    flag. Used after login with a temp password or when the user wants to update it.
+    """
     if len(payload.new_password) < 6:
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 6 caracteres")
-
-    token_doc = await db.password_reset_tokens.find_one({"token": payload.token, "used": False})
-    if not token_doc:
-        raise HTTPException(status_code=400, detail="Token inválido o ya usado")
-    if token_doc["expires_at"] < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="El enlace ha expirado. Solicita uno nuevo.")
-
     hashed = hash_password(payload.new_password)
     await db.users.update_one(
-        {"_id": ObjectId(token_doc["user_id"])},
-        {"$set": {"password": hashed}},
+        {"_id": ObjectId(current_user["_id"])},
+        {"$set": {"password": hashed, "must_change_password": False},
+         "$unset": {"temp_password_issued_at": ""}},
     )
-    await db.password_reset_tokens.update_one(
-        {"_id": token_doc["_id"]},
-        {"$set": {"used": True, "used_at": datetime.utcnow()}},
-    )
-    return {"message": "Contraseña restablecida correctamente"}
+    return {"message": "Contraseña actualizada correctamente"}
 
 
 @api_router.post("/auth/session")
@@ -439,6 +444,8 @@ async def google_session(request: GoogleSessionRequest):
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
+    current_user.pop("password", None)
+    current_user["must_change_password"] = bool(current_user.get("must_change_password", False))
     return current_user
 
 # ==================== USER ROUTES ====================

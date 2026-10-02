@@ -13,15 +13,17 @@ interface User {
   role: string;
   position?: string;
   profile_photo?: string;
+  must_change_password?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   loginWithGoogle: () => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
+  clearMustChangePassword: () => Promise<void>;
   isLoading: boolean;
   isAdmin: boolean;
 }
@@ -121,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await storage.setItem('user', data.user);
     setToken(data.token);
     setUser(data.user);
+    return data.user as User;
   };
 
   const loginWithGoogle = async () => {
@@ -201,6 +204,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const clearMustChangePassword = async () => {
+    if (!user) return;
+    const updated = { ...user, must_change_password: false };
+    await storage.setItem('user', updated);
+    setUser(updated);
+  };
+
   const isAdmin = user?.role === 'admin';
 
   return (
@@ -212,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loginWithGoogle,
         register,
         logout,
+        clearMustChangePassword,
         isLoading,
         isAdmin,
       }}

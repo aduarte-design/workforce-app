@@ -66,7 +66,8 @@ export default function ForgotPasswordScreen() {
             {!sent ? (
               <>
                 <Text style={styles.subtitle}>
-                  Ingresa tu correo corporativo y te enviaremos un enlace para restablecerla.
+                  Ingresa tu correo corporativo. Te enviaremos una contraseña temporal para que
+                  puedas ingresar y cambiarla de inmediato.
                 </Text>
 
                 <Text style={styles.inputLabel}>Correo corporativo</Text>
@@ -96,7 +97,7 @@ export default function ForgotPasswordScreen() {
                   {loading ? (
                     <ActivityIndicator color={GOLD} />
                   ) : (
-                    <Text style={styles.submitBtnText}>Enviar enlace</Text>
+                    <Text style={styles.submitBtnText}>Enviar contraseña temporal</Text>
                   )}
                 </TouchableOpacity>
               </>
@@ -106,8 +107,8 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.successTitle}>Revisa tu correo</Text>
                 <Text style={styles.successText}>
                   Si <Text style={{ fontWeight: '800', color: '#fff' }}>{email}</Text> está
-                  registrado, recibirás un correo con un enlace para restablecer tu contraseña.
-                  El enlace expira en 1 hora.
+                  registrado, recibirás una contraseña temporal en tu bandeja. Entra con ella
+                  y la app te pedirá crear una nueva.
                 </Text>
                 <TouchableOpacity
                   style={[styles.submitBtn, { marginTop: 20 }]}

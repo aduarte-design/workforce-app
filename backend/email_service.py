@@ -195,15 +195,25 @@ def tpl_leave_decision(employee_name: str, leave_type: str, status: str, start_d
     return subject, _wrap(body)
 
 
-def tpl_password_reset(user_name: str, reset_url: str) -> tuple[str, str]:
-    subject = "Restablecer tu contraseña"
+def tpl_password_reset(user_name: str, temp_password: str) -> tuple[str, str]:
+    subject = "Tu contraseña temporal"
     body = f"""
       <p style="margin:0 0 12px;font-size:16px;color:#122c2a;"><strong>Hola {escape(user_name)},</strong></p>
-      <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
-      <p>Haz clic en el botón para crear una nueva contraseña. El enlace expira en <strong>1 hora</strong>.</p>
-      <p style="text-align:center;margin:24px 0;">
-        <a href="{escape(reset_url)}" style="display:inline-block;background:#122c2a;color:#b68a2e;padding:14px 28px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;">Restablecer contraseña</a>
-      </p>
-      <p style="font-size:12px;color:#6b7280;">Si no solicitaste este cambio, puedes ignorar este correo y tu contraseña no cambiará.</p>
+      <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta. Te generamos una
+         contraseña temporal para que puedas ingresar y crear una nueva:</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:20px 0;">
+        <tr><td align="center">
+          <div style="display:inline-block;background:#122c2a;color:#b68a2e;padding:16px 28px;
+                      border-radius:12px;font-family:'Courier New',monospace;font-size:22px;
+                      font-weight:800;letter-spacing:2px;">
+            {escape(temp_password)}
+          </div>
+        </td></tr>
+      </table>
+      <p>Inicia sesión con esta contraseña temporal. Al entrar, la app te pedirá crear una
+         contraseña nueva y permanente.</p>
+      <p style="font-size:12px;color:#6b7280;">Por tu seguridad, esta contraseña temporal
+         solo puede usarse una vez y debe cambiarse en el próximo inicio de sesión. Si no
+         solicitaste este cambio, contacta a tu administrador.</p>
     """
     return subject, _wrap(body)

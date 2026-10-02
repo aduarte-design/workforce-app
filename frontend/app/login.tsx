@@ -62,8 +62,12 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      await login(email, password);
-      router.replace('/(tabs)');
+      const u = await login(email, password);
+      if (u?.must_change_password) {
+        router.replace('/change-password' as any);
+      } else {
+        router.replace('/(tabs)' as any);
+      }
     } catch (err: any) {
       showAlert(err.message || 'Credenciales incorrectas');
     } finally {

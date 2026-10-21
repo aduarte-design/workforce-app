@@ -103,7 +103,11 @@ def _assert_safe_email(subject: str, html: str) -> None:
 
 # ---------------- Core Send Function ----------------
 
-async def send_email(*, to: str, subject: str, html: str, reply_to: str | None = None) -> str | None:
+async def send_email(
+    *, to: str, subject: str, html: str, reply_to: str | None = None,
+    attachments: list[dict] | None = None,
+) -> str | None:
+    """attachments: [{"filename": str, "content": base64 str}] built server-side only."""
     if not EMAIL_KEY:
         logger.warning("EMERGENT_EMAIL_KEY not configured; skipping email send")
         return None
@@ -114,6 +118,8 @@ async def send_email(*, to: str, subject: str, html: str, reply_to: str | None =
         "html": html,
         "from_name": EMAIL_FROM_NAME,
     }
+    if attachments:
+        payload["attachments"] = attachments
     if reply_to or EMAIL_REPLY_TO:
         payload["contact_email"] = reply_to or EMAIL_REPLY_TO
     try:
@@ -161,7 +167,7 @@ def _wrap(body_html: str) -> str:
 TYPE_LABELS = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso"}
 
 
-def tpl_leave_created(employee_name: str, leave_type: str, start_date: str, end_date: str, reason: str) -> tuple[str, str]:
+def tpl_leave_created(employee_name: str, leave_type: str, start_date: str, end_date: str, reason: str, attachment_name: str | None = None) -> tuple[str, str]:
     subject = f"Nueva solicitud de {TYPE_LABELS.get(leave_type, 'permiso').lower()} — {employee_name}"
     body = f"""
       <p style="margin:0 0 12px;font-size:16px;color:#122c2a;"><strong>Nueva solicitud por aprobar</strong></p>
@@ -173,6 +179,8 @@ def tpl_leave_created(employee_name: str, leave_type: str, start_date: str, end_
             <td style="padding:10px 14px;color:#122c2a;font-weight:600;">{escape(start_date)} → {escape(end_date)}</td></tr>
         <tr><td style="padding:10px 14px;background:#f9fafb;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;">Motivo</td>
             <td style="padding:10px 14px;color:#122c2a;">{escape(reason or '—')}</td></tr>
+        <tr><td style="padding:10px 14px;background:#f9fafb;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;">Comprobante</td>
+            <td style="padding:10px 14px;color:#122c2a;">{escape(('📎 ' + attachment_name + ' (adjunto en este correo)') if attachment_name else 'Sin comprobante')}</td></tr>
       </table>
       <p>Entra a la app para aprobar o rechazar la solicitud.</p>
     """

@@ -99,3 +99,5 @@ Aplicación móvil de Recursos Humanos para Conactivos que centraliza la gestió
 - Keyboard handling: react-native-keyboard-controller (KeyboardProvider, KeyboardAwareScrollView in forms, KeyboardAvoidingView in all modals).
 - "Tu lideras con..." card now visible on employee's own profile (/perfil).
 - Custom app icon (assets/images/app-icon.png, adaptive app-adaptive-icon.png on #AF8636).
+- Leave proof attachments: photos (gallery/camera) or PDF ≤5MB, optional, stored in Emergent Object Storage (db.files), POST /api/upload, GET /api/files/{id}?token=; sent as email attachment to admins.
+- Monthly Likes ranking: GET /api/kudos/ranking?month=YYYY-MM; LikesRanking component (podium + top 10 + month selector) in Likes tab.

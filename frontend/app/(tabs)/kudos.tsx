@@ -10,7 +10,6 @@ import {
   Modal,
   Platform,
   TextInput,
-  Image,
 } from 'react-native';
 import { KeyboardAvoidingView as KCAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,9 +18,12 @@ import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getKudos,
   createKudo,
-  getKudosLeaderboard,
+  getKudosRanking,
   getUsers,
 } from '@/src/utils/api';
+import LikesRanking, { RankingEntry } from '@/src/components/LikesRanking';
+
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
 const CATEGORIES = [
   { id: 'teamwork', label: 'Trabajo en Equipo', icon: 'people', color: '#3b82f6' },
@@ -35,7 +37,13 @@ export default function KudosScreen() {
   const { user } = useAuth();
   
   const [kudos, setKudos] = useState<any[]>([]);
-  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [rankMonth, setRankMonth] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [ranking, setRanking] = useState<RankingEntry[]>([]);
+  const [rankingTotal, setRankingTotal] = useState(0);
+  const [rankingLoading, setRankingLoading] = useState(true);
   const [employees, setEmployees] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showKudoModal, setShowKudoModal] = useState(false);
@@ -48,19 +56,32 @@ export default function KudosScreen() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const loadRanking = useCallback(async (m: Date) => {
+    setRankingLoading(true);
+    try {
+      const data = await getKudosRanking(monthKey(m));
+      setRanking(data.ranking || []);
+      setRankingTotal(data.total_likes || 0);
+    } catch (error) {
+      console.error('Error loading ranking:', error);
+    } finally {
+      setRankingLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    loadRanking(rankMonth);
+  }, [rankMonth, loadRanking]);
 
   const loadData = async () => {
     try {
-      const [kudosData, leaderboardData, employeesData] = await Promise.all([
-        getKudos(),
-        getKudosLeaderboard(),
-        getUsers(),
-      ]);
+      const [kudosData, employeesData] = await Promise.all([getKudos(), getUsers()]);
       setKudos(kudosData);
-      setLeaderboard(leaderboardData);
       setEmployees(employeesData.filter((e: any) => e._id !== user?._id));
     } catch (error) {
       console.error('Error loading kudos:', error);
@@ -69,9 +90,10 @@ export default function KudosScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([loadData(), loadRanking(rankMonth)]);
     setRefreshing(false);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankMonth]);
 
   const handleOpenModal = () => {
     setKudoForm({
@@ -98,6 +120,7 @@ export default function KudosScreen() {
       showAlert('¡Like enviado!', 'Tu like ha sido enviado 🎉');
       setShowKudoModal(false);
       loadData();
+      loadRanking(rankMonth);
     } catch (error: any) {
       showAlert('Error', error.message || 'No se pudo enviar el like');
     } finally {
@@ -156,7 +179,7 @@ export default function KudosScreen() {
           onPress={() => setActiveTab('ranking')}
         >
           <Text style={[styles.tabText, activeTab === 'ranking' && styles.tabTextActive]}>
-            Top Reconocidos
+            Top 10 del Mes
           </Text>
         </TouchableOpacity>
       </View>
@@ -166,6 +189,16 @@ export default function KudosScreen() {
         contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <LikesRanking
+          month={rankMonth}
+          onChangeMonth={setRankMonth}
+          ranking={ranking}
+          totalLikes={rankingTotal}
+          loading={rankingLoading}
+          compact={activeTab === 'feed'}
+          onSeeAll={() => setActiveTab('ranking')}
+        />
+
         {activeTab === 'feed' ? (
           kudos.length === 0 ? (
             <View style={styles.emptyContainer}>
@@ -203,43 +236,7 @@ export default function KudosScreen() {
               );
             })
           )
-        ) : (
-          leaderboard.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Ionicons name="trophy-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>Aún no hay likes</Text>
-            </View>
-          ) : (
-            leaderboard.map((entry, index) => (
-              <View key={entry._id} style={styles.rankCard}>
-                <View style={[styles.rankBadge, index < 3 && styles.topRankBadge]}>
-                  {index === 0 && <Ionicons name="trophy" size={24} color="#b68a2e" />}
-                  {index === 1 && <Ionicons name="medal" size={24} color="#9ca3af" />}
-                  {index === 2 && <Ionicons name="medal" size={24} color="#c2410c" />}
-                  {index > 2 && <Text style={styles.rankNumber}>{index + 1}</Text>}
-                </View>
-
-                <View style={styles.rankAvatar}>
-                  {entry.profile_photo ? (
-                    <Image source={{ uri: entry.profile_photo }} style={styles.rankAvatarImage} />
-                  ) : (
-                    <Ionicons name="person" size={28} color="#122c2a" />
-                  )}
-                </View>
-
-                <View style={styles.rankInfo}>
-                  <Text style={styles.rankName}>{entry.to_user_name}</Text>
-                  <Text style={styles.rankPosition}>{entry.position}</Text>
-                </View>
-
-                <View style={styles.rankCount}>
-                  <Ionicons name="heart" size={16} color="#ef4444" />
-                  <Text style={styles.rankCountText}>{entry.count}</Text>
-                </View>
-              </View>
-            ))
-          )
-        )}
+        ) : null}
       </ScrollView>
 
       {/* Send Kudo Modal */}

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { storage } from '@/src/utils/storage';
+import { uploadForm } from '@/src/utils/upload';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
@@ -228,6 +229,25 @@ export const createKudo = async (kudoData: any) => {
 export const getUserKudos = async (userId: string) => {
   const response = await api.get(`/kudos/user/${userId}`);
   return response.data;
+};
+
+export const getKudosRanking = async (month: string) => {
+  const response = await api.get('/kudos/ranking', { params: { month } });
+  return response.data;
+};
+
+// Files (Object Storage)
+export const uploadProofFile = async (file: { uri: string; name: string; mimeType?: string | null }) => {
+  const token = await storage.secureGet('auth_token', null);
+  return uploadForm(`${API_URL}/api/upload`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    files: { file },
+  });
+};
+
+export const getFileUrl = async (fileId: string) => {
+  const token = await storage.secureGet('auth_token', null);
+  return `${API_URL}/api/files/${fileId}?token=${encodeURIComponent(String(token || ''))}`;
 };
 
 export const getKudosLeaderboard = async () => {

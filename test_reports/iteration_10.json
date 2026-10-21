@@ -1,0 +1,47 @@
+{
+  "summary": "Full backend + frontend verification of two new features: (1) leave-request attachments (upload/download/attachment-on-leave) and (2) monthly Likes ranking (podium + Top 10 tab). Backend: 19/19 pytest cases PASS in /app/backend/tests/test_attachments_and_ranking.py — includes POST /api/upload (auth required 401, png/pdf OK, txt=400, >5MB=413), GET /api/files/{id} (owner bearer OK, ?token= OK, no auth=401, other employee=403, admin OK), POST /api/leave-requests with attachment_id (stores attachment{file_id,filename,content_type,size} + GET verifies persistence; another user's attachment_id -> 404; invalid id -> 400; no attachment still works), GET /api/kudos/ranking (default current month YYYY-MM, specific month, invalid month=400, auth required, counts refresh after new like). Frontend (Expo web, mobile viewport 390x844, Juan Pérez login): Likes tab shows LikesRanking card (testID likes-ranking) with Oct 2026 label; prev-month works (switches to Sep 2026 with Juan/Paula/Roberto podium + Sofía López as rank-4 row); 'Ver Top 10' (ranking-see-all) switches to Top 10 tab and renders ranking-row-* elements. Permisos modal opens via the newly added testID open-new-leave-btn; 'Comprobante (opcional)' section visible with Galería + PDF buttons (attach-gallery-btn, attach-pdf-btn), camera correctly hidden on web; file chooser is wired — picking a PNG shows attachment-chip ('test_upload.png · 1 KB') with remove-attachment-btn; submit-leave-btn ('Crear Solicitud') present. Existing leave cards show attachment pills with view-attachment-<id> links.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/kudos/ranking", "issue": "Minor UX: next-month button on LikesRanking web is NOT marked as HTML-disabled (only visually opacity:0.3 and onPress guarded). is_disabled()=false in Playwright; behavior is still correct because the TouchableOpacity onPress is guarded by !isCurrent. Not a blocker."},
+      {"endpoint": "GET /api/users/{id} (carryover)", "issue": "Latent: get_current_user previously used jwt.JWTError which doesn't exist on PyJWT. Code now uses jwt.PyJWTError + an explicit HTTPException reraise — looks correct (lines 246-251 of server.py). No action needed; already fixed."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "solicitudes.tsx header + button", "issue": "Was missing a testID — automated tests had to use coordinates. FIXED by this testing agent: added testID='open-new-leave-btn'.", "testID": "open-new-leave-btn", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_10.json",
+    "/app/backend/tests/test_attachments_and_ranking.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No code changes needed from main agent. The attachments + ranking features both pass backend contract tests and frontend UI checks.",
+    "(Nice-to-have) Add testID to the top-right '+' FAB on remaining admin screens (Calendario, Capsulas, Metas) — same pattern as the one I added for Solicitudes.",
+    "(Carryover from iteration_9) perfil.tsx loadProfile useEffect has `[]` deps and bails on `if (!user) return;` — on a direct URL reload the profile can be stuck on the spinner. Change deps to `[user]`."
+  ],
+  "critical_code_review_comments": [
+    "server.py /api/upload correctly validates content_type (whitelist of jpg/png/heic/webp/pdf), size limit 5MB -> 413, inserts a `files` doc with owner_id for later ACL checks. Good.",
+    "server.py /api/files/{file_id} supports both Bearer header and ?token= query param — correct for <img>/browser downloads on web. Owner or admin only (403 otherwise). Good.",
+    "server.py /api/leave-requests on attachment_id: ownership check uses `owner_id: current_user['_id']` → correctly returns 404 if another user tries to use someone else's file. The attachment metadata is persisted + the file is also attached to the admin email (base64). Good.",
+    "server.py /api/kudos/ranking: uses $gte/$lt date boundaries, YYYY-MM parse with 400 on bad format, top 10 with tie-break on earliest `last`, includes rank, user_id, name, position, profile_photo, count. Matches contract.",
+    "LikesRanking.tsx podium correctly renders rank 1/2/3 and list rows 4-10 when !compact and ranking.length>3. Month label truncated to 3-letter abbreviation + year. Next-month visually dimmed via opacity 0.3 and disabled prop; onPress guarded by !isCurrent — functionally correct even though web button lacks the raw disabled attribute.",
+    "kudos.tsx tabs: compact mode on 'feed' tab (podium only + Ver Top 10) and full mode on 'ranking' tab (podium + Top 10 list). loadRanking is debounced on rankMonth change via useEffect. onRefresh refreshes both kudos list and ranking. Clean.",
+    "solicitudes.tsx attachment UI: upload happens on pick (handlePickGallery/handlePickPdf), chip shows filename + humanized size, remove clears attachment_id, submit sends attachment_id along with the leave payload. Camera button only rendered when Platform.OS !== 'web'. Good."
+  ],
+  "updated_files": [
+    "/app/frontend/app/(tabs)/solicitudes.tsx (added testID='open-new-leave-btn' to header '+' button)",
+    "/app/backend/tests/test_attachments_and_ranking.py (new 19-case suite for attachments + ranking)"
+  ],
+  "success_rate": {"backend": "100% (19/19 pytest)", "frontend": "100% — all requested testIDs render; podium + prev-month + see-all + attach-gallery/pdf + file chooser + chip + remove-btn + submit all verified"},
+  "seed_data_creation": "Three TEST_-prefixed leaves were created by backend tests under Juan Pérez (medical with pdf, normal no attachment, medical with cita.pdf from earlier run). One TEST_ kudo from Juan to Laura. All visible as 'Pendiente'. Harmless; can be cleaned by re-seed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Attachment + Likes ranking features are fully working. Juan Pérez (juan.perez@conactivos.com / employee123) now has at least 2 leaves with attachments (doc.pdf, cita.pdf) that render view-attachment-<id> on his /solicitudes cards. The current month at test time is Oct 2026. Octubre podium: Juan 2, Paula 1, Roberto 1 (totals from seeded + test-created kudos). Backend file storage path: {APP_NAME}/uploads/{user_id}/{uuid}.{ext} on Emergent Object Storage. New testID: open-new-leave-btn on Permisos FAB (added this round).",
+  "rca_of_issue": "N/A — pure feature verification, both features behave per spec. Only a minor DX fix: Permisos '+' FAB was missing a testID; added open-new-leave-btn."
+}

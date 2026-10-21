@@ -10,18 +10,60 @@ import {
   Modal,
   TextInput,
   Platform,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { KeyboardAvoidingView as KCAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as WebBrowser from 'expo-web-browser';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getLeaveRequests,
   createLeaveRequest,
   approveLeaveRequest,
+  uploadProofFile,
+  getFileUrl,
 } from '@/src/utils/api';
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+type Attachment = { uri: string; name: string; mimeType?: string | null; size?: number | null };
+
+type PermResult = { granted: boolean; canAskAgain: boolean };
+
+// Check → request (if allowed) → otherwise offer "Open Settings"
+async function ensurePermission(
+  get: () => Promise<PermResult>,
+  request: () => Promise<PermResult>,
+  label: string
+) {
+  let perm = await get();
+  if (perm.granted) return true;
+  if (perm.canAskAgain) {
+    perm = await request();
+    if (perm.granted) return true;
+  }
+  if (!perm.canAskAgain) {
+    showAlert(
+      'Permiso necesario',
+      `Activa el acceso a ${label} en Ajustes para adjuntar tu comprobante.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Abrir Ajustes', onPress: () => { Linking.openSettings(); } },
+      ]
+    );
+  } else {
+    showAlert('Permiso necesario', `Necesitamos acceso a ${label} para adjuntar tu comprobante.`);
+  }
+  return false;
+}
+
+const formatSize = (b?: number | null) =>
+  !b ? '' : b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.ceil(b / 1024)} KB`;
 
 export default function SolicitudesScreen() {
   const { isAdmin } = useAuth();
@@ -34,8 +76,9 @@ export default function SolicitudesScreen() {
     start_date: new Date(),
     end_date: new Date(),
     reason: '',
-    proof_document: '',
   });
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [submitStep, setSubmitStep] = useState<'' | 'uploading' | 'saving'>('');
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,12 +110,19 @@ export default function SolicitudesScreen() {
 
     setIsSubmitting(true);
     try {
+      let attachment_id: string | undefined;
+      if (attachment) {
+        setSubmitStep('uploading');
+        const up = await uploadProofFile(attachment);
+        attachment_id = up.file_id;
+      }
+      setSubmitStep('saving');
       await createLeaveRequest({
         type: newRequest.type,
         start_date: newRequest.start_date.toISOString().split('T')[0],
         end_date: newRequest.end_date.toISOString().split('T')[0],
         reason: newRequest.reason,
-        proof_document: newRequest.proof_document || undefined,
+        attachment_id,
       });
 
       showAlert('Éxito', 'Solicitud creada correctamente');
@@ -80,9 +130,10 @@ export default function SolicitudesScreen() {
       resetNewRequest();
       loadRequests();
     } catch (error: any) {
-      showAlert('Error', error.message || 'No se pudo crear la solicitud');
+      showAlert('Error', error?.response?.data?.detail || error.message || 'No se pudo crear la solicitud');
     } finally {
       setIsSubmitting(false);
+      setSubmitStep('');
     }
   };
 
@@ -92,29 +143,73 @@ export default function SolicitudesScreen() {
       start_date: new Date(),
       end_date: new Date(),
       reason: '',
-      proof_document: '',
     });
+    setAttachment(null);
   };
 
-  const handlePickDocument = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showAlert('Permiso requerido', 'Se necesita permiso para acceder a las fotos');
+  const acceptFile = (f: Attachment) => {
+    if (f.size && f.size > MAX_FILE_BYTES) {
+      showAlert('Archivo muy grande', 'El comprobante no puede superar 5 MB.');
       return;
     }
+    setAttachment(f);
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.5,
-      base64: true,
+  const fromImageAsset = (a: ImagePicker.ImagePickerAsset): Attachment => ({
+    uri: a.uri,
+    name: a.fileName || `comprobante-${Date.now()}.jpg`,
+    mimeType: a.mimeType || 'image/jpeg',
+    size: a.fileSize,
+  });
+
+  const handlePickGallery = async () => {
+    if (Platform.OS !== 'web') {
+      const ok = await ensurePermission(
+        ImagePicker.getMediaLibraryPermissionsAsync,
+        ImagePicker.requestMediaLibraryPermissionsAsync,
+        'tus fotos'
+      );
+      if (!ok) return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
+    if (!result.canceled && result.assets[0]) acceptFile(fromImageAsset(result.assets[0]));
+  };
+
+  const handleTakePhoto = async () => {
+    if (Platform.OS !== 'web') {
+      const ok = await ensurePermission(
+        ImagePicker.getCameraPermissionsAsync,
+        ImagePicker.requestCameraPermissionsAsync,
+        'la cámara'
+      );
+      if (!ok) return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
+    if (!result.canceled && result.assets[0]) acceptFile(fromImageAsset(result.assets[0]));
+  };
+
+  const handlePickPdf = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+      multiple: false,
     });
+    if (!result.canceled && result.assets?.[0]) {
+      const a = result.assets[0];
+      acceptFile({ uri: a.uri, name: a.name || 'comprobante.pdf', mimeType: a.mimeType || 'application/pdf', size: a.size });
+    }
+  };
 
-    if (!result.canceled && result.assets[0].base64) {
-      setNewRequest({
-        ...newRequest,
-        proof_document: `data:image/jpeg;base64,${result.assets[0].base64}`,
-      });
+  const openAttachment = async (fileId: string) => {
+    try {
+      const url = await getFileUrl(fileId);
+      if (Platform.OS === 'web') {
+        window.open(url, '_blank');
+      } else {
+        await WebBrowser.openBrowserAsync(url);
+      }
+    } catch {
+      showAlert('Error', 'No se pudo abrir el comprobante');
     }
   };
 
@@ -187,6 +282,7 @@ export default function SolicitudesScreen() {
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowNewRequestModal(true)}
+          testID="open-new-leave-btn"
         >
           <Ionicons name="add" size={22} color="#fff" />
         </TouchableOpacity>
@@ -232,12 +328,28 @@ export default function SolicitudesScreen() {
 
               <Text style={styles.requestReason}>{request.reason}</Text>
 
-              {request.proof_document && (
+              {request.attachment?.file_id ? (
+                <TouchableOpacity
+                  style={styles.documentIndicator}
+                  onPress={() => openAttachment(request.attachment.file_id)}
+                  testID={`view-attachment-${request._id}`}
+                >
+                  <Ionicons
+                    name={request.attachment.content_type === 'application/pdf' ? 'document-text' : 'image'}
+                    size={16}
+                    color="#b68a2e"
+                  />
+                  <Text style={styles.documentText} numberOfLines={1}>
+                    {request.attachment.filename}
+                  </Text>
+                  <Text style={styles.documentLink}>Ver</Text>
+                </TouchableOpacity>
+              ) : request.proof_document ? (
                 <View style={styles.documentIndicator}>
                   <Ionicons name="document-attach" size={16} color="#122c2a" />
                   <Text style={styles.documentText}>Documento adjunto</Text>
                 </View>
-              )}
+              ) : null}
 
               {isAdmin && request.status === 'pending' && (
                 <View style={styles.actions}>
@@ -364,23 +476,60 @@ export default function SolicitudesScreen() {
                 textAlignVertical="top"
               />
 
-              <TouchableOpacity
-                style={styles.uploadButton}
-                onPress={handlePickDocument}
-              >
-                <Ionicons name="cloud-upload-outline" size={20} color="#122c2a" />
-                <Text style={styles.uploadButtonText}>
-                  {newRequest.proof_document ? 'Documento adjuntado' : 'Adjuntar documento'}
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.label}>Comprobante (opcional)</Text>
+              <Text style={styles.hint}>Foto o PDF, máximo 5 MB. Se enviará a los administradores.</Text>
+              {attachment ? (
+                <View style={styles.attachmentChip} testID="attachment-chip">
+                  <Ionicons
+                    name={attachment.mimeType === 'application/pdf' ? 'document-text' : 'image'}
+                    size={22}
+                    color="#b68a2e"
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.attachmentName} numberOfLines={1}>{attachment.name}</Text>
+                    {!!attachment.size && <Text style={styles.attachmentSize}>{formatSize(attachment.size)}</Text>}
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setAttachment(null)}
+                    style={styles.attachmentRemove}
+                    disabled={isSubmitting}
+                    testID="remove-attachment-btn"
+                  >
+                    <Ionicons name="close" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.attachRow}>
+                  <TouchableOpacity style={styles.attachOption} onPress={handlePickGallery} testID="attach-gallery-btn">
+                    <Ionicons name="images-outline" size={22} color="#122c2a" />
+                    <Text style={styles.attachOptionText}>Galería</Text>
+                  </TouchableOpacity>
+                  {Platform.OS !== 'web' && (
+                    <TouchableOpacity style={styles.attachOption} onPress={handleTakePhoto} testID="attach-camera-btn">
+                      <Ionicons name="camera-outline" size={22} color="#122c2a" />
+                      <Text style={styles.attachOptionText}>Cámara</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity style={styles.attachOption} onPress={handlePickPdf} testID="attach-pdf-btn">
+                    <Ionicons name="document-text-outline" size={22} color="#122c2a" />
+                    <Text style={styles.attachOptionText}>PDF</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
                 onPress={handleCreateRequest}
                 disabled={isSubmitting}
+                testID="submit-leave-btn"
               >
+                {isSubmitting && <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />}
                 <Text style={styles.submitButtonText}>
-                  {isSubmitting ? 'Creando...' : 'Crear Solicitud'}
+                  {submitStep === 'uploading'
+                    ? 'Subiendo comprobante...'
+                    : isSubmitting
+                    ? 'Creando...'
+                    : 'Crear Solicitud'}
                 </Text>
               </TouchableOpacity>
             </KeyboardAwareScrollView>
@@ -606,25 +755,74 @@ const styles = StyleSheet.create({
     color: '#333',
     minHeight: 100,
   },
-  uploadButton: {
+  hint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: -4,
+    marginBottom: 10,
+  },
+  attachRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginTop: 16,
     gap: 8,
   },
-  uploadButtonText: {
-    fontSize: 14,
+  attachOption: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    minHeight: 64,
+    backgroundColor: '#f5f5f7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderStyle: 'dashed',
+    gap: 4,
+  },
+  attachOptionText: {
+    fontSize: 13,
     color: '#122c2a',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  attachmentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    backgroundColor: '#fdf8ee',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#b68a2e',
+  },
+  attachmentName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#122c2a',
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  attachmentRemove: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#122c2a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  documentLink: {
+    marginLeft: 'auto',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#b68a2e',
+    paddingLeft: 8,
   },
   submitButton: {
     backgroundColor: '#122c2a',
     padding: 16,
     borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 24,
     marginBottom: 8,

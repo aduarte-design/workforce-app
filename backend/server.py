@@ -20,6 +20,12 @@ from email_service import (
 )
 import secrets as _secrets
 import jwt
+import base64
+import uuid
+from fastapi import UploadFile, File, Query
+from fastapi.responses import Response
+from starlette.concurrency import run_in_threadpool
+from storage_service import init_storage, put_object, get_object, APP_NAME as STORAGE_APP_NAME
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -124,6 +130,7 @@ class LeaveRequestCreate(BaseModel):
     end_date: str
     reason: str
     proof_document: Optional[str] = None
+    attachment_id: Optional[str] = None
 
 class LeaveRequestApprove(BaseModel):
     status: Literal["approved", "rejected"]
@@ -776,6 +783,78 @@ async def delete_user(user_id: str, current_user: dict = Depends(require_admin))
         "deleted_name": target.get("name"),
     }
 
+# ==================== FILE UPLOAD ROUTES ====================
+
+ALLOWED_UPLOAD_TYPES = {
+    "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png",
+    "image/heic": "heic", "image/heif": "heif", "image/webp": "webp",
+    "application/pdf": "pdf",
+}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+
+@api_router.post("/upload")
+async def upload_file(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    content_type = (file.content_type or "").lower()
+    filename = file.filename or "archivo"
+    if content_type not in ALLOWED_UPLOAD_TYPES:
+        ext_guess = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        by_ext = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "pdf": "application/pdf",
+                  "heic": "image/heic", "webp": "image/webp"}
+        content_type = by_ext.get(ext_guess, "")
+    if content_type not in ALLOWED_UPLOAD_TYPES:
+        raise HTTPException(status_code=400, detail="Solo se permiten fotos (JPG, PNG, HEIC) o PDF")
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="El archivo supera el límite de 5 MB")
+    if not data:
+        raise HTTPException(status_code=400, detail="Archivo vacío")
+    ext = ALLOWED_UPLOAD_TYPES[content_type]
+    path = f"{STORAGE_APP_NAME}/uploads/{current_user['_id']}/{uuid.uuid4()}.{ext}"
+    try:
+        result = await run_in_threadpool(put_object, path, data, content_type)
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(status_code=502, detail="No se pudo subir el archivo. Intenta de nuevo.")
+    doc = {
+        "owner_id": current_user["_id"],
+        "storage_path": result.get("path", path),
+        "original_filename": filename,
+        "content_type": content_type,
+        "size": result.get("size", len(data)),
+        "is_deleted": False,
+        "created_at": datetime.utcnow(),
+    }
+    ins = await db.files.insert_one(doc)
+    return {"file_id": str(ins.inserted_id), "filename": filename, "content_type": content_type, "size": doc["size"]}
+
+
+@api_router.get("/files/{file_id}")
+async def download_file(
+    file_id: str,
+    token: Optional[str] = Query(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+):
+    """Auth via Bearer header or ?token= (for <img>/browser on web). Owner or admin only."""
+    raw = credentials.credentials if credentials else token
+    if not raw:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user = await get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=raw))
+    if not ObjectId.is_valid(file_id):
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    doc = await db.files.find_one({"_id": ObjectId(file_id), "is_deleted": False})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    if doc["owner_id"] != user["_id"] and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Sin acceso a este archivo")
+    data, ctype = await run_in_threadpool(get_object, doc["storage_path"])
+    safe_name = doc["original_filename"].replace('"', "")
+    return Response(
+        content=data,
+        media_type=doc.get("content_type") or ctype,
+        headers={"Content-Disposition": f'inline; filename="{safe_name}"'},
+    )
+
 # ==================== LEAVE REQUEST ROUTES ====================
 
 @api_router.post("/leave-requests")
@@ -783,14 +862,42 @@ async def create_leave_request(
     request_data: LeaveRequestCreate,
     current_user: dict = Depends(get_current_user)
 ):
-    request_dict = request_data.dict()
+    request_dict = request_data.dict(exclude={"attachment_id"})
     request_dict["user_id"] = current_user["_id"]
     request_dict["user_name"] = current_user["name"]
     request_dict["status"] = "pending"
     request_dict["created_at"] = datetime.utcnow()
-    
+
+    # Optional proof file (already uploaded to object storage by this same user)
+    email_attachments = None
+    file_doc = None
+    if request_data.attachment_id:
+        if not ObjectId.is_valid(request_data.attachment_id):
+            raise HTTPException(status_code=400, detail="Adjunto inválido")
+        file_doc = await db.files.find_one({
+            "_id": ObjectId(request_data.attachment_id),
+            "owner_id": current_user["_id"],
+            "is_deleted": False,
+        })
+        if not file_doc:
+            raise HTTPException(status_code=404, detail="Adjunto no encontrado")
+        request_dict["attachment"] = {
+            "file_id": str(file_doc["_id"]),
+            "filename": file_doc["original_filename"],
+            "content_type": file_doc["content_type"],
+            "size": file_doc["size"],
+        }
+        try:
+            data, _ = await run_in_threadpool(get_object, file_doc["storage_path"])
+            email_attachments = [{
+                "filename": file_doc["original_filename"],
+                "content": base64.b64encode(data).decode(),
+            }]
+        except Exception as _e:
+            logger.warning(f"Could not load attachment for email: {_e}")
+
     result = await db.leave_requests.insert_one(request_dict)
-    
+
     # Send notifications and emails to all admins
     admins = await db.users.find({"role": "admin"}).to_list(100)
     subject, html = tpl_leave_created(
@@ -799,6 +906,7 @@ async def create_leave_request(
         start_date=request_data.start_date,
         end_date=request_data.end_date,
         reason=request_data.reason or "",
+        attachment_name=file_doc["original_filename"] if email_attachments else None,
     )
     for admin in admins:
         notification = {
@@ -813,7 +921,7 @@ async def create_leave_request(
         # Fire-and-forget email (errors are swallowed inside send_email)
         if admin.get("email"):
             try:
-                await send_email(to=admin["email"], subject=subject, html=html)
+                await send_email(to=admin["email"], subject=subject, html=html, attachments=email_attachments)
             except Exception as _e:
                 logger.warning(f"Failed sending leave email to admin: {_e}")
     
@@ -1277,6 +1385,45 @@ async def get_user_kudos(user_id: str, current_user: dict = Depends(get_current_
     for kudo in kudos:
         kudo["_id"] = str(kudo["_id"])
     return kudos
+
+@api_router.get("/kudos/ranking")
+async def get_kudos_monthly_ranking(
+    month: Optional[str] = None,  # YYYY-MM, defaults to current month
+    current_user: dict = Depends(get_current_user),
+):
+    """Top 10 most-liked coworkers for a given month."""
+    try:
+        start = datetime.strptime(month, "%Y-%m") if month else datetime.utcnow().replace(day=1)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato de mes inválido (YYYY-MM)")
+    start = start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end = start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
+
+    pipeline = [
+        {"$match": {"created_at": {"$gte": start, "$lt": end}}},
+        {"$group": {
+            "_id": "$to_user_id",
+            "to_user_name": {"$first": "$to_user_name"},
+            "count": {"$sum": 1},
+            "last": {"$max": "$created_at"},
+        }},
+        {"$sort": {"count": -1, "last": 1}},
+        {"$limit": 10},
+    ]
+    rows = await db.kudos.aggregate(pipeline).to_list(10)
+    total = await db.kudos.count_documents({"created_at": {"$gte": start, "$lt": end}})
+    ranking = []
+    for i, r in enumerate(rows):
+        u = await db.users.find_one({"_id": ObjectId(r["_id"])}) if ObjectId.is_valid(r["_id"]) else None
+        ranking.append({
+            "rank": i + 1,
+            "user_id": r["_id"],
+            "name": (u or {}).get("name") or r.get("to_user_name"),
+            "position": (u or {}).get("position", ""),
+            "profile_photo": (u or {}).get("profile_photo"),
+            "count": r["count"],
+        })
+    return {"month": start.strftime("%Y-%m"), "total_likes": total, "ranking": ranking}
 
 @api_router.get("/kudos/leaderboard")
 async def get_kudos_leaderboard(current_user: dict = Depends(get_current_user)):
@@ -1832,6 +1979,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_storage():
+    try:
+        await run_in_threadpool(init_storage)
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Object storage init failed: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

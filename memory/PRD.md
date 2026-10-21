@@ -94,3 +94,8 @@ Aplicación móvil de Recursos Humanos para Conactivos que centraliza la gestió
 - ✅ Frontend: All screens verified visually
 - ✅ Role-based permissions working (403 for unauthorized actions)
 - ✅ Seed data loaded successfully
+
+## Update (Jun 2026)
+- Keyboard handling: react-native-keyboard-controller (KeyboardProvider, KeyboardAwareScrollView in forms, KeyboardAvoidingView in all modals).
+- "Tu lideras con..." card now visible on employee's own profile (/perfil).
+- Custom app icon (assets/images/app-icon.png, adaptive app-adaptive-icon.png on #AF8636).

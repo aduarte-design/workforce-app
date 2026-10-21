@@ -11,8 +11,8 @@ import {
   Modal,
   TextInput,
   Platform,
-  Alert,
 } from 'react-native';
+import { KeyboardAvoidingView as KCAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -430,11 +430,12 @@ export default function EmployeeDetailScreen() {
         animationType="slide"
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KCAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalCardLarge}>
             <View style={styles.modalGrabber} />
             <Text style={styles.modalTitle}>Editar perfil</Text>
-            <ScrollView
+            <KeyboardAwareScrollView
+              bottomOffset={24}
               style={{ maxHeight: 460 }}
               contentContainerStyle={{ paddingBottom: 10 }}
               showsVerticalScrollIndicator={false}
@@ -540,7 +541,7 @@ export default function EmployeeDetailScreen() {
                 maxLength={160}
                 testID="edit-leadership-input"
               />
-            </ScrollView>
+            </KeyboardAwareScrollView>
 
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
@@ -564,7 +565,7 @@ export default function EmployeeDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KCAvoidingView>
       </Modal>
 
       {/* Hire date edit modal */}
@@ -574,7 +575,7 @@ export default function EmployeeDetailScreen() {
         animationType="fade"
         onRequestClose={() => setShowHireDateModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KCAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Fecha de ingreso</Text>
             <Text style={styles.modalHint}>Formato: AAAA-MM-DD (ej: 2024-03-15)</Text>
@@ -610,7 +611,7 @@ export default function EmployeeDetailScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KCAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -4,7 +4,7 @@
     "slug": "frontend",
     "version": "1.1.0",
     "orientation": "default",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -32,8 +32,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/app-adaptive-icon.png",
+        "backgroundColor": "#AF8636"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true,

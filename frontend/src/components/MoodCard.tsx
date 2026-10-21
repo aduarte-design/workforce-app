@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -113,7 +114,7 @@ export default function MoodCard({ value, editable = true, onSave }: Props) {
         animationType="slide"
         onRequestClose={() => setOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.sheet}>
             <View style={styles.grabber} />
             <Text style={styles.sheetTitle}>¿Cómo te sientes hoy?</Text>
@@ -178,7 +179,7 @@ export default function MoodCard({ value, editable = true, onSave }: Props) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

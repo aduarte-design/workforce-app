@@ -7,11 +7,11 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
   Platform,
 } from 'react-native';
+import { KeyboardAvoidingView as KCAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -269,7 +269,7 @@ export default function SolicitudesScreen() {
         transparent
         onRequestClose={() => setShowNewRequestModal(false)}
       >
-        <View style={styles.modalContainer}>
+        <KCAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Nueva Solicitud</Text>
@@ -278,7 +278,7 @@ export default function SolicitudesScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll}>
+            <KeyboardAwareScrollView style={styles.modalScroll} bottomOffset={24} keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Tipo de Permiso</Text>
               <View style={styles.typeButtons}>
                 {['vacation', 'medical', 'normal'].map((type) => (
@@ -383,9 +383,9 @@ export default function SolicitudesScreen() {
                   {isSubmitting ? 'Creando...' : 'Crear Solicitud'}
                 </Text>
               </TouchableOpacity>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
-        </View>
+        </KCAvoidingView>
       </Modal>
     </SafeAreaView>
   );

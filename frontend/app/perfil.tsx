@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
   ActivityIndicator,
 } from 'react-native';
@@ -38,7 +37,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadProfile();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   const loadProfile = async () => {
     if (!user) return;
@@ -159,6 +159,19 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
+
+        {/* Leadership Statement — set by admin, visible to the owner */}
+        {!!profile.leadership_statement && (
+          <View style={styles.leadershipCard} testID="own-leadership-card">
+            <View style={styles.leadershipHeader}>
+              <View style={styles.leadershipIconWrap}>
+                <Ionicons name="trophy" size={16} color="#b68a2e" />
+              </View>
+              <Text style={styles.leadershipTitle}>Tu lideras con...</Text>
+            </View>
+            <Text style={styles.leadershipText}>{profile.leadership_statement}</Text>
+          </View>
+        )}
 
         {/* Mood (editable by owner) */}
         <MoodCard
@@ -359,6 +372,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#122c2a',
+  },
+  leadershipCard: {
+    backgroundColor: '#122c2a',
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 16,
+  },
+  leadershipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  leadershipIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(182,138,46,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  leadershipTitle: {
+    color: '#b68a2e',
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  leadershipText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+    fontStyle: 'italic',
   },
   card: {
     backgroundColor: '#fff',

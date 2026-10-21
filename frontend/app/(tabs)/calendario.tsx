@@ -7,11 +7,11 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
   Platform,
 } from 'react-native';
+import { KeyboardAvoidingView as KCAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -268,7 +268,7 @@ export default function CalendarioScreen() {
         transparent
         onRequestClose={handleCloseModal}
       >
-        <View style={styles.modalContainer}>
+        <KCAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -279,7 +279,7 @@ export default function CalendarioScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll}>
+            <KeyboardAwareScrollView style={styles.modalScroll} bottomOffset={24} keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Título</Text>
               <TextInput
                 style={styles.input}
@@ -338,9 +338,9 @@ export default function CalendarioScreen() {
                   {isSubmitting ? 'Guardando...' : editingEvent ? 'Actualizar' : 'Crear Evento'}
                 </Text>
               </TouchableOpacity>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
-        </View>
+        </KCAvoidingView>
       </Modal>
     </SafeAreaView>
   );

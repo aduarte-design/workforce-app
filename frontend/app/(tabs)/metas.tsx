@@ -7,12 +7,11 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { KeyboardAvoidingView as KCAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -226,7 +225,7 @@ export default function MetasScreen() {
         transparent
         onRequestClose={() => setShowEditModal(false)}
       >
-        <KeyboardAvoidingView
+        <KCAvoidingView
           style={styles.modalContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
@@ -238,7 +237,7 @@ export default function MetasScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll}>
+            <KeyboardAwareScrollView style={styles.modalScroll} bottomOffset={24} keyboardShouldPersistTaps="handled">
               <Text style={styles.label}>Meta del Mes (COP)</Text>
               <TextInput
                 style={styles.input}
@@ -291,9 +290,9 @@ export default function MetasScreen() {
                   {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
                 </Text>
               </TouchableOpacity>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </KCAvoidingView>
       </Modal>
     </SafeAreaView>
   );

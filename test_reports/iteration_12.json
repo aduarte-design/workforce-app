@@ -1,0 +1,45 @@
+{
+  "summary": "Verified Novedades export (xlsx+pdf) and Likes/kudo notifications end-to-end. Backend: 19/19 pytest cases PASS in /app/backend/tests/test_export_novedades.py — GET /api/leave-requests/export supports Bearer and ?token= auth (401 without), returns correct content-type (xlsx MIME / application/pdf, body starts with %PDF-), Content-Disposition attachment filename with scope 'todos' for admin and employee first-name for juan.perez; xlsx has title row 1, filters row 2, blank row 3, header row 4 exactly [Empleado, Tipo, Desde, Hasta, Estado, Motivo, Comprobante, Aprobado por, Creada]; admin row-count >= employee row-count; employee rows are strictly their own; type=bogus / status=bogus / start=2026/01/01 all return 400; type=telework yields only 'Teletrabajo' rows; status=approved yields only 'Aprobada'; date-range overlap logic verified (end>=start AND start<=end); combined filters produce valid PDF. POST /api/kudos creates a kudo-type notification for the recipient (title/message both contain 'Like'). Frontend (mobile 390x844): login works with testID='submit-login-btn' for both admin1 and juan.perez. On /solicitudes, download icon testID='open-export-btn' opens modal testID='export-modal' with correct subtitle ('Novedades de todo el equipo' for admin, 'Tus novedades' for employee). All chip testIDs are rendered and visible: export-range-{all,month,3m,year,custom}, export-type-{all,vacation,medical,normal,telework}, export-status-{all,pending,approved,rejected}; export-xlsx-btn, export-pdf-btn, export-close-btn all work. Selecting 'Personalizado' reveals export-from and export-to text inputs (web uses AAAA-MM-DD TextInput; filled with 2026-01-01/2026-12-31 successfully). Clicking export-xlsx-btn and export-pdf-btn triggers a web download event (novedades_2026-10-21.xlsx and novedades_2026-10-21.pdf) and the modal auto-closes afterwards. export-close-btn also closes the modal. On the web platform useLikeNotifier correctly short-circuits (Platform.OS === 'web'); zero page errors on login, /solicitudes, or /kudos; /kudos renders the feed including the kudo created during the backend test. No red-screen errors observed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_12.json",
+    "/app/backend/tests/test_export_novedades.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No code changes needed. Both features (Novedades export + Likes notifier integration) pass backend + frontend verification."
+  ],
+  "critical_code_review_comments": [
+    "server.py L944-L1074: /api/leave-requests/export correctly supports Bearer OR ?token= via HTTPBearer(auto_error=False); scope defaults to {} for admin and {user_id} for employees; LEAVE_TYPE_LABELS/STATUS_LABELS validation returns 400; date overlap uses end_date>=start AND start_date<=end on YYYY-MM-DD strings (safe because dates are stored as strings).",
+    "server.py L1013-L1035: xlsx has title row 1, filters row 2, blank row 3, bold green header row 4 with freeze_panes 'A5' — matches spec exactly. 'proof_document' excluded from projection to avoid heavy base64 payload.",
+    "server.py L1042-L1066: pdf uses reportlab landscape(letter), paragraphs for cell wrapping, repeatRows=1, and renders an empty-state row when no data.",
+    "server.py L1507-L1548 /api/kudos: creates kudo-type notifications for every user except the sender, with distinct recipient title '¡Recibiste un Like!' — matches useLikeNotifier filter n.type==='kudo'.",
+    "useLikeNotifier.ts L28: correctly guards with Platform.OS==='web' so Expo Go notifications are only scheduled on native; polls every 20s with AppState active guard and persists seen ids per-user to prevent login flood.",
+    "ExportNovedadesModal.tsx: Chips component spreads testIDs with prefix mapping — produces exactly the testIDs required by the spec (export-range-{key|'all'}, export-type-{key|'all'}, export-status-{key|'all'}). Web branch of DateField renders a TextInput with AAAA-MM-DD placeholder.",
+    "api.ts L105-L154 downloadNovedades: Web branch uses fetch + blob + anchor-download pattern (triggers browser download event); Native uses expo-file-system downloadAsync + Sharing. Auth token read from secure storage and passed as Bearer header.",
+    "solicitudes.tsx L287-L303: open-export-btn is a 44x44 TouchableOpacity sibling of open-new-leave-btn, with ExportNovedadesModal mounted inline using isAdmin flag."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_export_novedades.py (new, 19 tests)",
+    "/app/test_reports/iteration_12.json (new)",
+    "/app/test_reports/pytest/pytest_results.xml (regenerated)"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 pytest)",
+    "frontend": "100% — modal, all chips, custom date inputs, xlsx & pdf downloads, auto-close and close-btn all work for both admin and employee; useLikeNotifier skipped cleanly on web"
+  },
+  "seed_data_creation": "Backend TestKudoNotifications test created 1 kudo 'TEST_ kudo notification backend verification' from admin → juan.perez. Visible on /kudos feed. Previously created TEST_ telework leaves (from iteration_11) are still present and surface in the xlsx export when filtered by type=telework.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Export + Likes notifier features fully working. Server date is Oct 21, 2026. For future runs, the suite is /app/backend/tests/test_export_novedades.py (uses openpyxl, which is already installed via backend requirements). Frontend login uses testID='submit-login-btn' (not 'login-button'). The ExportNovedadesModal is mounted inside /solicitudes screen; open-export-btn (download icon) is to the left of open-new-leave-btn (+). The modal is a bottom-sheet with max-height 90%; when testing chips that sit at the bottom (export-xlsx/pdf, export-close under certain states), always scroll_into_view_if_needed before clicking to avoid 'outside viewport' errors in Playwright.",
+  "rca_of_issue": "N/A — feature verification only; no bugs found."
+}

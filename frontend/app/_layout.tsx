@@ -10,6 +10,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider, useAuth } from "@/src/contexts/AuthContext";
 import { schedulePausaActivaNotifications } from "@/src/utils/pausaNotifications";
+import { useLikeNotifier } from "@/src/hooks/useLikeNotifier";
 
 // Disable logbox errors etc so that users can see the app
 // and agent works as expected.
@@ -23,6 +24,7 @@ function AppShell() {
   const { user } = useAuth();
   const router = useRouter();
   const scheduledOnce = useRef(false);
+  useLikeNotifier(user?._id);
 
   useEffect(() => {
     if (loaded || error) {

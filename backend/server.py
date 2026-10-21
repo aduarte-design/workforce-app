@@ -938,6 +938,142 @@ async def get_leave_requests(current_user: dict = Depends(get_current_user)):
         req["_id"] = str(req["_id"])
     return requests
 
+STATUS_LABELS = {"pending": "Pendiente", "approved": "Aprobada", "rejected": "Rechazada"}
+
+
+@api_router.get("/leave-requests/export")
+async def export_leave_requests(
+    format: Literal["xlsx", "pdf"] = "xlsx",
+    start: Optional[str] = None,  # YYYY-MM-DD (novedad overlaps range)
+    end: Optional[str] = None,
+    type: Optional[str] = None,
+    status: Optional[str] = None,
+    token: Optional[str] = Query(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+):
+    """Download novedades history. Admin: everyone. Employee: only own."""
+    import io
+    from html import escape
+    raw = credentials.credentials if credentials else token
+    if not raw:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    user = await get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=raw))
+
+    query: dict = {} if user.get("role") == "admin" else {"user_id": user["_id"]}
+    if type:
+        if type not in LEAVE_TYPE_LABELS:
+            raise HTTPException(status_code=400, detail="Tipo inválido")
+        query["type"] = type
+    if status:
+        if status not in STATUS_LABELS:
+            raise HTTPException(status_code=400, detail="Estado inválido")
+        query["status"] = status
+    for v in (start, end):
+        if v:
+            try:
+                datetime.strptime(v, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Fecha inválida (YYYY-MM-DD)")
+    if start:
+        query["end_date"] = {"$gte": start}
+    if end:
+        query["start_date"] = {"$lte": end}
+
+    reqs = await db.leave_requests.find(query, {"proof_document": 0}).sort("start_date", -1).to_list(5000)
+    headers_row = ["Empleado", "Tipo", "Desde", "Hasta", "Estado", "Motivo", "Comprobante", "Aprobado por", "Creada"]
+    approver_ids = {r["approved_by"] for r in reqs if r.get("approved_by") and ObjectId.is_valid(r["approved_by"])}
+    approvers = {}
+    if approver_ids:
+        async for a in db.users.find({"_id": {"$in": [ObjectId(i) for i in approver_ids]}}, {"name": 1}):
+            approvers[str(a["_id"])] = a.get("name", "")
+    rows = []
+    for r in reqs:
+        rows.append([
+            r.get("user_name", ""),
+            LEAVE_TYPE_LABELS.get(r.get("type"), r.get("type", "")),
+            r.get("start_date", ""),
+            r.get("end_date", ""),
+            STATUS_LABELS.get(r.get("status"), r.get("status", "")),
+            r.get("reason", "") or "",
+            (r.get("attachment") or {}).get("filename", ""),
+            approvers.get(r.get("approved_by") or "", ""),
+            r["created_at"].strftime("%Y-%m-%d") if isinstance(r.get("created_at"), datetime) else "",
+        ])
+
+    filters_txt = " · ".join(filter(None, [
+        f"Desde {start}" if start else "",
+        f"Hasta {end}" if end else "",
+        LEAVE_TYPE_LABELS.get(type, "") if type else "",
+        STATUS_LABELS.get(status, "") if status else "",
+    ])) or "Todo el histórico"
+    stamp = datetime.utcnow().strftime("%Y%m%d")
+    scope = "todos" if user.get("role") == "admin" else user["name"].split(" ")[0].lower()
+    buf = io.BytesIO()
+
+    if format == "xlsx":
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Novedades"
+        ws.append(["Histórico de Novedades — Conactivos"])
+        ws.append([f"Filtros: {filters_txt}"])
+        ws.append([])
+        ws.append(headers_row)
+        ws["A1"].font = Font(bold=True, size=14, color="122C2A")
+        for c in ws[4]:
+            c.font = Font(bold=True, color="FFFFFF")
+            c.fill = PatternFill("solid", fgColor="122C2A")
+            c.alignment = Alignment(horizontal="center")
+        for row in rows:
+            ws.append(row)
+        for col, w in zip("ABCDEFGHI", [26, 14, 12, 12, 12, 40, 24, 22, 12]):
+            ws.column_dimensions[col].width = w
+        ws.freeze_panes = "A5"
+        wb.save(buf)
+        media = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"novedades_{scope}_{stamp}.xlsx"
+    else:
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        doc = SimpleDocTemplate(buf, pagesize=landscape(letter), leftMargin=12 * mm, rightMargin=12 * mm,
+                                topMargin=12 * mm, bottomMargin=12 * mm, title="Histórico de Novedades")
+        ss = getSampleStyleSheet()
+        cell = ParagraphStyle("cell", parent=ss["BodyText"], fontSize=8, leading=10)
+        head = ParagraphStyle("head", parent=cell, textColor=colors.white, fontName="Helvetica-Bold")
+        title = ParagraphStyle("t", parent=ss["Title"], textColor=colors.HexColor("#122c2a"), alignment=0)
+        elements = [
+            Paragraph("Histórico de Novedades — Conactivos", title),
+            Paragraph(f"Filtros: {escape(filters_txt)} · {len(rows)} registros", ss["Normal"]),
+            Spacer(1, 6 * mm),
+        ]
+        data = [[Paragraph(h, head) for h in headers_row]]
+        data += [[Paragraph(escape(str(v)), cell) for v in row] for row in rows]
+        if not rows:
+            data.append([Paragraph("Sin registros para los filtros seleccionados", cell)] + [""] * 8)
+        t = Table(data, repeatRows=1, colWidths=[38*mm, 22*mm, 20*mm, 20*mm, 20*mm, 60*mm, 32*mm, 28*mm, 18*mm])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#122c2a")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f7")]),
+            ("LINEBELOW", (0, 0), (-1, 0), 1.5, colors.HexColor("#b68a2e")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#e5e7eb")),
+        ]))
+        elements.append(t)
+        doc.build(elements)
+        media = "application/pdf"
+        filename = f"novedades_{scope}_{stamp}.pdf"
+
+    return Response(
+        content=buf.getvalue(),
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @api_router.get("/leave-requests/{request_id}")
 async def get_leave_request(request_id: str, current_user: dict = Depends(get_current_user)):
     if not ObjectId.is_valid(request_id):

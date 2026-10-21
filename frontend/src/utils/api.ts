@@ -1,5 +1,8 @@
 import axios from 'axios';
 import { storage } from '@/src/utils/storage';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { uploadForm } from '@/src/utils/upload';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -97,6 +100,57 @@ export const downloadUserPdf = async (userId: string, filename = 'empleado.pdf')
   }
   // Native fallback: just return the blob (caller should use expo-file-system)
   return { ok: true, blob };
+};
+
+export const downloadNovedades = async (params: {
+  format: 'xlsx' | 'pdf';
+  start?: string;
+  end?: string;
+  type?: string;
+  status?: string;
+}) => {
+  const token = await storage.secureGet('auth_token', null);
+  const qs = Object.entries(params)
+    .filter(([, v]) => !!v)
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .join('&');
+  const url = `${API_URL}/api/leave-requests/export?${qs}`;
+  const stamp = new Date().toISOString().slice(0, 10);
+  const filename = `novedades_${stamp}.${params.format}`;
+  const mimeType =
+    params.format === 'pdf'
+      ? 'application/pdf'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+  if (Platform.OS === 'web') {
+    const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) throw new Error('No se pudo generar el archivo');
+    const blob = await resp.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
+    return;
+  }
+
+  const target = `${FileSystem.cacheDirectory}${filename}`;
+  const res = await FileSystem.downloadAsync(url, target, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status !== 200) throw new Error('No se pudo generar el archivo');
+  if (await Sharing.isAvailableAsync()) {
+    await Sharing.shareAsync(res.uri, {
+      mimeType,
+      dialogTitle: 'Histórico de Novedades',
+      UTI: params.format === 'pdf' ? 'com.adobe.pdf' : 'org.openxmlformats.spreadsheetml.sheet',
+    });
+  } else {
+    throw new Error('Tu dispositivo no permite compartir archivos');
+  }
 };
 
 export const requestPasswordReset = async (email: string) => {

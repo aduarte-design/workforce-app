@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import ExportNovedadesModal from '@/src/components/ExportNovedadesModal';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
   getLeaveRequests,
@@ -71,6 +72,7 @@ export default function SolicitudesScreen() {
   const [requests, setRequests] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [newRequest, setNewRequest] = useState({
     type: 'vacation',
     start_date: new Date(),
@@ -281,14 +283,24 @@ export default function SolicitudesScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Novedades</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowNewRequestModal(true)}
-          testID="open-new-leave-btn"
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity
+            style={[styles.addButton, { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb' }]}
+            onPress={() => setShowExport(true)}
+            testID="open-export-btn"
+          >
+            <Ionicons name="download-outline" size={20} color="#122c2a" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowNewRequestModal(true)}
+            testID="open-new-leave-btn"
+          >
+            <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
+      <ExportNovedadesModal visible={showExport} onClose={() => setShowExport(false)} isAdmin={!!isAdmin} />
 
       <ScrollView
         style={styles.content}

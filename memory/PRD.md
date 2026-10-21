@@ -102,3 +102,5 @@ Aplicación móvil de Recursos Humanos para Conactivos que centraliza la gestió
 - Leave proof attachments: photos (gallery/camera) or PDF ≤5MB, optional, stored in Emergent Object Storage (db.files), POST /api/upload, GET /api/files/{id}?token=; sent as email attachment to admins.
 - Monthly Likes ranking: GET /api/kudos/ranking?month=YYYY-MM; LikesRanking component (podium + top 10 + month selector) in Likes tab.
 - Módulo 'Permisos' renombrado a 'Novedades'; nuevo tipo 'telework' (Teletrabajo); GET /api/dashboard/novedades {today, upcoming}; pantalla /novedades con 'Novedades de hoy' y 'Próximas novedades'.
+- Export histórico Novedades: GET /api/leave-requests/export?format=xlsx|pdf&start&end&type&status (admin todos, empleado propio); botón descarga en pestaña Novedades.
+- Likes: aviso local en el celular (useLikeNotifier, polling 20s con app abierta/activa); no es push remoto.

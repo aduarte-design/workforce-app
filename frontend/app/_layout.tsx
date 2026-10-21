@@ -68,7 +68,7 @@ function AppShell() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="pausas" />
       <Stack.Screen name="cumpleanos" />
-      <Stack.Screen name="ausentes" />
+      <Stack.Screen name="novedades" />
     </Stack>
   );
 }

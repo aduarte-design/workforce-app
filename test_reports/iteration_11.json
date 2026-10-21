@@ -1,0 +1,41 @@
+{
+  "summary": "Verified Permisos → Novedades rename + new Teletrabajo type end-to-end. Backend: 9/9 pytest cases PASS in /app/backend/tests/test_novedades.py — POST /api/leave-requests with type 'telework' creates a pending request; it appears in GET /api/leave-requests. GET /api/reports/stats returns leaves.by_type with vacation/medical/normal/telework (int, telework >= 1). GET /api/dashboard/novedades returns {today:[], upcoming:[]} shape, items are approved-only (cross-checked via GET /api/leave-requests as admin), today items satisfy start<=today<=end, upcoming items have start>today and are ascending-sorted by start_date; a newly admin-approved future telework (start=today+21) is immediately found in upcoming. Endpoint requires auth (401/403 without token). Frontend (mobile 390x844): Login screen shows the feature chip 'Registra novedades' (login.tsx L31). After login (both admin1@conactivos.com and juan.perez@conactivos.com): Home card testID='novedades-card' is labeled 'Novedades' and shows '0 hoy · 3 próximas'. Tap → /novedades (back-btn works). /novedades header 'Novedades', two sections testID='novedades-today' titled 'Novedades de hoy' + testID='novedades-upcoming' titled 'Próximas novedades'. Teletrabajo novedades are visible as green 'Teletrabajo' badges on cards. Second home card 'Por aprobar' routes to /solicitudes. Solicitudes screen header 'Novedades'; '+' testID='open-new-leave-btn' opens 'Nueva Solicitud' modal with 'Tipo de Novedad' label and 4 type buttons in a 2x2 grid: leave-type-vacation / leave-type-medical / leave-type-normal / leave-type-telework (y-positions pair exactly, verified via bounding boxes). submit-leave-btn 'Crear Solicitud' present. Reportes screen (admin) shows sections 'Personal', 'Novedades' (Total de Novedades = 11) and 'Novedades por Tipo' including a 'Teletrabajo' row (word 'Permisos' appears exactly 1x as the label of the 'normal' type, which matches the spec).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_11.json",
+    "/app/backend/tests/test_novedades.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No code changes needed. All review-request items pass backend + frontend verification."
+  ],
+  "critical_code_review_comments": [
+    "server.py L114/L128: Pydantic Literal type correctly extended to include 'telework' for both LeaveRequest create model and admin approval model.",
+    "server.py L1010 LEAVE_TYPE_LABELS and L638 type_map (PDF export) both include 'telework': 'Teletrabajo'. PDF 'Historial de Novedades' naming also updated.",
+    "server.py L1033-L1043 /api/dashboard/novedades correctly uses date-string lexicographic comparison (safe because start_date/end_date are stored as YYYY-MM-DD strings) and sorts upcoming by start_date ascending.",
+    "server.py L1506/L1533 /api/reports/stats returns 'telework' count under leaves.by_type.",
+    "frontend/app/novedades.tsx: TYPE_INFO maps 'telework' → 'Teletrabajo' with laptop icon + teal palette (consistent with modal + reportes).",
+    "frontend/app/(tabs)/index.tsx: novedades-card uses data.novedades.today.length and data.novedades.upcoming.length; subtext 'hoy · N próximas' as spec'd. Second gridRow 'Por aprobar' pushes to /(tabs)/solicitudes.",
+    "frontend/app/(tabs)/solicitudes.tsx L396-L418: 4 types rendered via array map with testID=leave-type-${type}; styles.typeButtons uses flexWrap for 2x2 grid.",
+    "frontend/app/reportes.tsx L95/L139: sections 'Novedades' and 'Novedades por Tipo'; 'Teletrabajo' row added with laptop icon. Note the 'Permisos' label at L155 is the Spanish label for the 'normal' leave type, not a module name — correct per spec."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_novedades.py (new 9-case pytest suite)",
+    "/app/test_reports/iteration_11.json (new)"
+  ],
+  "success_rate": {"backend": "100% (9/9 pytest)", "frontend": "100% — all required testIDs render and all flows (home card → /novedades → sections → back → Por aprobar → modal with Teletrabajo) pass"},
+  "seed_data_creation": "Backend tests created 2 TEST_-prefixed telework leaves under Juan Pérez (one pending ~today+14, one approved ~today+21..+22). The approved one shows under 'Próximas novedades' with motivo 'TEST_ future telework to approve'. Safe to leave or clean via re-seed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Novedades rename + Teletrabajo feature is fully working. Juan Pérez now has at least 3 approved future telework novedades visible on /novedades. Suite: /app/backend/tests/test_novedades.py. All home card copy, section titles, testIDs match the spec exactly. Current server date ~Oct 21, 2026.",
+  "rca_of_issue": "N/A — feature verification only; no bugs found."
+}

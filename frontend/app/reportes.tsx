@@ -92,10 +92,10 @@ export default function ReportsScreen() {
 
         {/* Leaves Overview */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Solicitudes de Permisos</Text>
+          <Text style={styles.sectionTitle}>Novedades</Text>
           
           <View style={styles.bigStatCard}>
-            <Text style={styles.bigStatLabel}>Total de Solicitudes</Text>
+            <Text style={styles.bigStatLabel}>Total de Novedades</Text>
             <Text style={styles.bigStatNumber}>{stats.leaves.total}</Text>
             <Text style={styles.bigStatSubtext}>
               {stats.leaves.this_month} este mes
@@ -136,7 +136,7 @@ export default function ReportsScreen() {
 
         {/* By Type */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Solicitudes por Tipo</Text>
+          <Text style={styles.sectionTitle}>Novedades por Tipo</Text>
           <View style={styles.typeCard}>
             {[
               {
@@ -152,10 +152,16 @@ export default function ReportsScreen() {
                 count: stats.leaves.by_type.medical,
               },
               {
-                label: 'Permisos Normales',
+                label: 'Permisos',
                 icon: 'time',
                 color: '#b68a2e',
                 count: stats.leaves.by_type.normal,
+              },
+              {
+                label: 'Teletrabajo',
+                icon: 'laptop',
+                color: '#0f766e',
+                count: stats.leaves.by_type.telework || 0,
               },
             ].map((item) => {
               const total = stats.leaves.total || 1;

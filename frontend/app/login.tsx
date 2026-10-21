@@ -28,7 +28,7 @@ type Feature = {
 };
 
 const FEATURES: Feature[] = [
-  { icon: 'document-text', iconColor: GOLD, bg: '#fef3c7', label1: 'Solicita', label2: 'permisos' },
+  { icon: 'document-text', iconColor: GOLD, bg: '#fef3c7', label1: 'Registra', label2: 'novedades' },
   { icon: 'heart', iconColor: '#dc2626', bg: '#fce7f3', label1: 'Reconoce', label2: 'compañeras' },
   { icon: 'notifications', iconColor: GREEN, bg: '#dcfce7', label1: 'Mantente', label2: 'enterada' },
 ];

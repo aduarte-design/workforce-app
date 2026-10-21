@@ -164,14 +164,14 @@ def _wrap(body_html: str) -> str:
     return _WRAPPER.format(brand=escape(EMAIL_FROM_NAME), body=body_html)
 
 
-TYPE_LABELS = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso"}
+TYPE_LABELS = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso", "telework": "Teletrabajo"}
 
 
 def tpl_leave_created(employee_name: str, leave_type: str, start_date: str, end_date: str, reason: str, attachment_name: str | None = None) -> tuple[str, str]:
-    subject = f"Nueva solicitud de {TYPE_LABELS.get(leave_type, 'permiso').lower()} — {employee_name}"
+    subject = f"Nueva novedad: {TYPE_LABELS.get(leave_type, 'Novedad')} — {employee_name}"
     body = f"""
       <p style="margin:0 0 12px;font-size:16px;color:#122c2a;"><strong>Nueva solicitud por aprobar</strong></p>
-      <p>Hola, {escape(employee_name)} acaba de enviar una solicitud:</p>
+      <p>Hola, {escape(employee_name)} acaba de registrar una novedad:</p>
       <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:16px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
         <tr><td style="padding:10px 14px;background:#f9fafb;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;">Tipo</td>
             <td style="padding:10px 14px;color:#122c2a;font-weight:600;">{escape(TYPE_LABELS.get(leave_type, leave_type))}</td></tr>
@@ -182,7 +182,7 @@ def tpl_leave_created(employee_name: str, leave_type: str, start_date: str, end_
         <tr><td style="padding:10px 14px;background:#f9fafb;color:#6b7280;font-size:12px;font-weight:700;text-transform:uppercase;">Comprobante</td>
             <td style="padding:10px 14px;color:#122c2a;">{escape(('📎 ' + attachment_name + ' (adjunto en este correo)') if attachment_name else 'Sin comprobante')}</td></tr>
       </table>
-      <p>Entra a la app para aprobar o rechazar la solicitud.</p>
+      <p>Entra a la app para aprobar o rechazar la novedad.</p>
     """
     return subject, _wrap(body)
 
@@ -192,10 +192,10 @@ def tpl_leave_decision(employee_name: str, leave_type: str, status: str, start_d
     verb = "aprobada" if approved else "rechazada"
     color = "#10b981" if approved else "#dc2626"
     emoji = "✅" if approved else "❌"
-    subject = f"{emoji} Tu solicitud fue {verb}"
+    subject = f"{emoji} Tu novedad fue {verb}"
     body = f"""
       <p style="margin:0 0 12px;font-size:16px;color:#122c2a;"><strong>Hola {escape(employee_name)},</strong></p>
-      <p>Tu solicitud de <strong>{escape(TYPE_LABELS.get(leave_type, leave_type).lower())}</strong> del
+      <p>Tu novedad de <strong>{escape(TYPE_LABELS.get(leave_type, leave_type).lower())}</strong> del
          <strong>{escape(start_date)}</strong> al <strong>{escape(end_date)}</strong> fue
          <strong style="color:{color};">{verb}</strong> por {escape(admin_name)}.</p>
       <p>Puedes ver los detalles completos en la app.</p>

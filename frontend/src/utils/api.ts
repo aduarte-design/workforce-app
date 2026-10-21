@@ -131,8 +131,8 @@ export const approveLeaveRequest = async (requestId: string, status: 'approved' 
 };
 
 // Dashboard
-export const getAbsentEmployees = async () => {
-  const response = await api.get('/dashboard/absent');
+export const getNovedades = async () => {
+  const response = await api.get('/dashboard/novedades');
   return response.data;
 };
 

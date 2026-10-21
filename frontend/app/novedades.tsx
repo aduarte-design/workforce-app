@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAbsentEmployees } from '@/src/utils/api';
+import { getNovedades } from '@/src/utils/api';
 
 const MONTHS = [
   'ene', 'feb', 'mar', 'abr', 'may', 'jun',
@@ -42,9 +42,11 @@ const TYPE_INFO: Record<string, { label: string; icon: keyof typeof Ionicons.gly
   vacation: { label: 'Vacaciones',   icon: 'sunny',   color: '#f59e0b', bg: '#fef3c7' },
   medical:  { label: 'Cita médica',  icon: 'medkit',  color: '#dc2626', bg: '#fee2e2' },
   normal:   { label: 'Permiso',      icon: 'time',    color: '#3b82f6', bg: '#dbeafe' },
+  telework: { label: 'Teletrabajo',  icon: 'laptop',  color: '#0f766e', bg: '#ccfbf1' },
 };
 
-type Absent = {
+type Novedad = {
+  request_id?: string;
   _id: string;
   name: string;
   position: string;
@@ -55,18 +57,89 @@ type Absent = {
   end_date: string;
 };
 
-export default function AusentesScreen() {
+function NovedadCard({ a }: { a: Novedad }) {
+  const info = TYPE_INFO[a.type] || TYPE_INFO.normal;
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardTop}>
+        <View style={styles.avatar}>
+          {a.profile_photo ? (
+            <Image source={{ uri: a.profile_photo }} style={styles.avatarImg} />
+          ) : (
+            <Ionicons name="person" size={22} color="#122c2a" />
+          )}
+        </View>
+        <View style={styles.nameBox}>
+          <Text style={styles.name} numberOfLines={1}>{a.name}</Text>
+          <Text style={styles.position} numberOfLines={1}>{a.position}</Text>
+        </View>
+        <View style={[styles.typeBadge, { backgroundColor: info.bg }]}>
+          <Ionicons name={info.icon} size={12} color={info.color} />
+          <Text style={[styles.typeBadgeText, { color: info.color }]}>{info.label}</Text>
+        </View>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.detailRow}>
+        <Ionicons name="calendar-outline" size={14} color="#6b7280" />
+        <Text style={styles.detailLabel}>Fechas</Text>
+        <Text style={styles.detailValue}>{formatRange(a.start_date, a.end_date)}</Text>
+      </View>
+
+      {!!a.reason && (
+        <View style={styles.detailRow}>
+          <Ionicons name="chatbox-ellipses-outline" size={14} color="#6b7280" />
+          <Text style={styles.detailLabel}>Motivo</Text>
+          <Text style={[styles.detailValue, styles.reason]} numberOfLines={3}>
+            {a.reason}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function Section({
+  title, icon, items, empty, testID,
+}: { title: string; icon: keyof typeof Ionicons.glyphMap; items: Novedad[]; empty: string; testID: string }) {
+  return (
+    <View style={styles.section} testID={testID}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionIcon}>
+          <Ionicons name={icon} size={14} color="#b68a2e" />
+        </View>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.countPill}>
+          <Text style={styles.countPillText}>{items.length}</Text>
+        </View>
+      </View>
+      {items.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons name="checkmark-circle-outline" size={36} color="#d1d5db" />
+          <Text style={styles.emptyText}>{empty}</Text>
+        </View>
+      ) : (
+        items.map((a) => <NovedadCard key={a.request_id || `${a._id}-${a.start_date}`} a={a} />)
+      )}
+    </View>
+  );
+}
+
+export default function NovedadesScreen() {
   const router = useRouter();
-  const [absents, setAbsents] = useState<Absent[]>([]);
+  const [today, setToday] = useState<Novedad[]>([]);
+  const [upcoming, setUpcoming] = useState<Novedad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await getAbsentEmployees();
-      setAbsents(data || []);
+      const data = await getNovedades();
+      setToday(data?.today || []);
+      setUpcoming(data?.upcoming || []);
     } catch (e) {
-      console.error('Error loading absent employees:', e);
+      console.error('Error loading novedades:', e);
     } finally {
       setLoading(false);
     }
@@ -91,9 +164,9 @@ export default function AusentesScreen() {
           <Ionicons name="arrow-back" size={22} color="#122c2a" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Ausentes hoy</Text>
+          <Text style={styles.title}>Novedades</Text>
           <Text style={styles.subtitle}>
-            {absents.length} {absents.length === 1 ? 'persona ausente' : 'personas ausentes'}
+            {today.length} hoy · {upcoming.length} próximas
           </Text>
         </View>
       </View>
@@ -108,55 +181,20 @@ export default function AusentesScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {absents.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="checkmark-circle-outline" size={48} color="#d1d5db" />
-              <Text style={styles.emptyText}>No hay personas ausentes hoy</Text>
-            </View>
-          ) : (
-            absents.map((a) => {
-              const info = TYPE_INFO[a.type] || TYPE_INFO.normal;
-              return (
-                <View key={a._id} style={styles.card}>
-                  <View style={styles.cardTop}>
-                    <View style={styles.avatar}>
-                      {a.profile_photo ? (
-                        <Image source={{ uri: a.profile_photo }} style={styles.avatarImg} />
-                      ) : (
-                        <Ionicons name="person" size={22} color="#122c2a" />
-                      )}
-                    </View>
-                    <View style={styles.nameBox}>
-                      <Text style={styles.name} numberOfLines={1}>{a.name}</Text>
-                      <Text style={styles.position} numberOfLines={1}>{a.position}</Text>
-                    </View>
-                    <View style={[styles.typeBadge, { backgroundColor: info.bg }]}>
-                      <Ionicons name={info.icon} size={12} color={info.color} />
-                      <Text style={[styles.typeBadgeText, { color: info.color }]}>{info.label}</Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.divider} />
-
-                  <View style={styles.detailRow}>
-                    <Ionicons name="calendar-outline" size={14} color="#6b7280" />
-                    <Text style={styles.detailLabel}>Fechas</Text>
-                    <Text style={styles.detailValue}>{formatRange(a.start_date, a.end_date)}</Text>
-                  </View>
-
-                  {!!a.reason && (
-                    <View style={styles.detailRow}>
-                      <Ionicons name="chatbox-ellipses-outline" size={14} color="#6b7280" />
-                      <Text style={styles.detailLabel}>Motivo</Text>
-                      <Text style={[styles.detailValue, styles.reason]} numberOfLines={3}>
-                        {a.reason}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              );
-            })
-          )}
+          <Section
+            title="Novedades de hoy"
+            icon="today"
+            items={today}
+            empty="No hay novedades para hoy"
+            testID="novedades-today"
+          />
+          <Section
+            title="Próximas novedades"
+            icon="calendar"
+            items={upcoming}
+            empty="No hay novedades próximas"
+            testID="novedades-upcoming"
+          />
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -285,11 +323,22 @@ const styles = StyleSheet.create({
   },
   empty: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 24,
+    backgroundColor: '#fff',
+    borderRadius: 18,
   },
+  section: { marginBottom: 20 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  sectionIcon: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: '#122c2a',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sectionTitle: { flex: 1, fontSize: 16, fontWeight: '800', color: '#122c2a', letterSpacing: -0.3 },
+  countPill: { backgroundColor: '#b68a2e', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 },
+  countPillText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   emptyText: {
     fontSize: 14,
     color: '#9ca3af',
-    marginTop: 12,
+    marginTop: 8,
   },
 });

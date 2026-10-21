@@ -244,6 +244,8 @@ export default function SolicitudesScreen() {
         return 'Cita Médica';
       case 'normal':
         return 'Permiso';
+      case 'telework':
+        return 'Teletrabajo';
       default:
         return type;
     }
@@ -278,7 +280,7 @@ export default function SolicitudesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Permisos</Text>
+        <Text style={styles.headerTitle}>Novedades</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => setShowNewRequestModal(true)}
@@ -391,11 +393,12 @@ export default function SolicitudesScreen() {
             </View>
 
             <KeyboardAwareScrollView style={styles.modalScroll} bottomOffset={24} keyboardShouldPersistTaps="handled">
-              <Text style={styles.label}>Tipo de Permiso</Text>
+              <Text style={styles.label}>Tipo de Novedad</Text>
               <View style={styles.typeButtons}>
-                {['vacation', 'medical', 'normal'].map((type) => (
+                {['vacation', 'medical', 'normal', 'telework'].map((type) => (
                   <TouchableOpacity
                     key={type}
+                    testID={`leave-type-${type}`}
                     style={[
                       styles.typeButton,
                       newRequest.type === type && styles.typeButtonActive,
@@ -712,12 +715,14 @@ const styles = StyleSheet.create({
   },
   typeButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   typeButton: {
-    flex: 1,
+    flexBasis: '48%',
+    flexGrow: 1,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e0e0e0',

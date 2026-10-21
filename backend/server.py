@@ -111,7 +111,7 @@ class LeaveRequest(BaseModel):
     id: Optional[str] = Field(default=None, alias="_id")
     user_id: str
     user_name: Optional[str] = None
-    type: Literal["vacation", "medical", "normal"]
+    type: Literal["vacation", "medical", "normal", "telework"]
     start_date: str
     end_date: str
     reason: str
@@ -125,7 +125,7 @@ class LeaveRequest(BaseModel):
         populate_by_name = True
 
 class LeaveRequestCreate(BaseModel):
-    type: Literal["vacation", "medical", "normal"]
+    type: Literal["vacation", "medical", "normal", "telework"]
     start_date: str
     end_date: str
     reason: str
@@ -630,12 +630,12 @@ async def export_user_pdf(user_id: str, current_user: dict = Depends(require_adm
     elements.append(t)
 
     # Leave history
-    elements.append(Paragraph(f"Historial de Permisos y Ausencias ({len(leaves)})", h2_style))
+    elements.append(Paragraph(f"Historial de Novedades ({len(leaves)})", h2_style))
     if not leaves:
-        elements.append(Paragraph("<i>Sin registros de permisos.</i>", body_style))
+        elements.append(Paragraph("<i>Sin registros de novedades.</i>", body_style))
     else:
         rows = [["Tipo", "Desde", "Hasta", "Estado", "Motivo"]]
-        type_map = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso"}
+        type_map = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso", "telework": "Teletrabajo"}
         status_map = {"pending": "Pendiente", "approved": "Aprobada", "rejected": "Rechazada"}
         for lv in leaves:
             rows.append([
@@ -911,8 +911,8 @@ async def create_leave_request(
     for admin in admins:
         notification = {
             "user_id": str(admin["_id"]),
-            "title": "Nueva solicitud de permiso",
-            "message": f"{current_user['name']} ha solicitado un permiso de tipo {request_data.type}",
+            "title": "Nueva novedad",
+            "message": f"{current_user['name']} registró una novedad: {LEAVE_TYPE_LABELS.get(request_data.type, request_data.type)}",
             "type": "leave_request",
             "read": False,
             "created_at": datetime.utcnow()
@@ -979,8 +979,8 @@ async def approve_reject_leave_request(
     # Send notification + email to the employee
     notification = {
         "user_id": request["user_id"],
-        "title": "Solicitud de permiso actualizada",
-        "message": f"Tu solicitud de permiso ha sido {approval_data.status}",
+        "title": "Novedad actualizada",
+        "message": f"Tu novedad ha sido {'aprobada' if approval_data.status == 'approved' else 'rechazada'}",
         "type": "leave_request_update",
         "read": False,
         "created_at": datetime.utcnow()
@@ -1006,6 +1006,42 @@ async def approve_reject_leave_request(
     return {"message": f"Request {approval_data.status} successfully"}
 
 # ==================== DASHBOARD ROUTES ====================
+
+LEAVE_TYPE_LABELS = {"vacation": "Vacaciones", "medical": "Cita médica", "normal": "Permiso", "telework": "Teletrabajo"}
+
+
+async def _novedad_rows(reqs: list) -> list:
+    rows = []
+    for req in reqs:
+        user = await db.users.find_one({"_id": ObjectId(req["user_id"])}) if ObjectId.is_valid(req["user_id"]) else None
+        if user:
+            rows.append({
+                "_id": str(user["_id"]),
+                "request_id": str(req["_id"]),
+                "name": user["name"],
+                "position": user.get("position", ""),
+                "profile_photo": user.get("profile_photo"),
+                "type": req["type"],
+                "reason": req.get("reason", ""),
+                "start_date": req["start_date"],
+                "end_date": req["end_date"],
+                "until": req["end_date"],
+            })
+    return rows
+
+
+@api_router.get("/dashboard/novedades")
+async def get_novedades(current_user: dict = Depends(get_current_user)):
+    """Approved novedades: today (in progress) and upcoming (start after today)."""
+    today = datetime.utcnow().date().isoformat()
+    today_reqs = await db.leave_requests.find({
+        "status": "approved", "start_date": {"$lte": today}, "end_date": {"$gte": today},
+    }).sort("end_date", 1).to_list(1000)
+    upcoming_reqs = await db.leave_requests.find({
+        "status": "approved", "start_date": {"$gt": today},
+    }).sort("start_date", 1).to_list(200)
+    return {"today": await _novedad_rows(today_reqs), "upcoming": await _novedad_rows(upcoming_reqs)}
+
 
 @api_router.get("/dashboard/absent")
 async def get_absent_employees(current_user: dict = Depends(get_current_user)):
@@ -1467,6 +1503,7 @@ async def get_stats(current_user: dict = Depends(require_admin)):
     vacation_count = await db.leave_requests.count_documents({"type": "vacation"})
     medical_count = await db.leave_requests.count_documents({"type": "medical"})
     normal_count = await db.leave_requests.count_documents({"type": "normal"})
+    telework_count = await db.leave_requests.count_documents({"type": "telework"})
     
     # Kudos stats
     total_kudos = await db.kudos.count_documents({})
@@ -1492,7 +1529,8 @@ async def get_stats(current_user: dict = Depends(require_admin)):
             "by_type": {
                 "vacation": vacation_count,
                 "medical": medical_count,
-                "normal": normal_count
+                "normal": normal_count,
+                "telework": telework_count,
             }
         },
         "kudos": {

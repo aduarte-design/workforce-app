@@ -13,7 +13,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
-  getAbsentEmployees,
+  getNovedades,
   getBirthdays,
   getEmployeeOfMonth,
   getGoals,
@@ -27,7 +27,7 @@ export default function HomeScreen() {
   const router = useRouter();
   
   const [data, setData] = useState<any>({
-    absent: [],
+    novedades: { today: [], upcoming: [] },
     birthdays: { today: [], upcoming: [] },
     employeeOfMonth: null,
     goal: null,
@@ -39,8 +39,8 @@ export default function HomeScreen() {
 
   const loadDashboardData = async () => {
     try {
-      const [absent, birthdayData, employee, goal, capsules, kudos, leaves] = await Promise.all([
-        getAbsentEmployees(),
+      const [novedades, birthdayData, employee, goal, capsules, kudos, leaves] = await Promise.all([
+        getNovedades(),
         getBirthdays(),
         getEmployeeOfMonth(),
         getGoals(),
@@ -50,7 +50,7 @@ export default function HomeScreen() {
       ]);
       
       setData({
-        absent,
+        novedades,
         birthdays: birthdayData,
         employeeOfMonth: employee,
         goal,
@@ -158,23 +158,23 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Grid Row 1: Ausentes + Cumpleaños (clickable, count-only) */}
+        {/* Grid Row 1: Novedades + Cumpleaños (clickable, count-only) */}
         <View style={styles.gridRow}>
           <TouchableOpacity
             style={styles.gridCard}
-            onPress={() => router.push('/ausentes' as any)}
+            onPress={() => router.push('/novedades' as any)}
             activeOpacity={0.85}
-            testID="absent-card"
+            testID="novedades-card"
           >
             <View style={styles.gridCardHeader}>
               <View style={[styles.miniIcon, { backgroundColor: '#fee2e2' }]}>
-                <Ionicons name="person-remove" size={14} color="#ef4444" />
+                <Ionicons name="newspaper" size={14} color="#ef4444" />
               </View>
-              <Text style={styles.gridCardLabel}>Ausentes</Text>
+              <Text style={styles.gridCardLabel}>Novedades</Text>
             </View>
-            <Text style={styles.gridNumber}>{data.absent.length}</Text>
+            <Text style={styles.gridNumber}>{data.novedades.today.length}</Text>
             <View style={styles.gridFooter}>
-              <Text style={styles.gridSubtext}>Ver lista</Text>
+              <Text style={styles.gridSubtext}>hoy · {data.novedades.upcoming.length} próximas</Text>
               <Ionicons name="chevron-forward" size={12} color="#9ca3af" />
             </View>
           </TouchableOpacity>
@@ -234,7 +234,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Grid Row 2: Solicitudes + Reconocimientos */}
+        {/* Grid Row 2: Novedades pendientes + Reconocimientos */}
         <View style={styles.gridRow}>
           <TouchableOpacity
             style={styles.gridCard}
@@ -245,10 +245,10 @@ export default function HomeScreen() {
               <View style={[styles.miniIcon, { backgroundColor: '#dbeafe' }]}>
                 <Ionicons name="document-text" size={14} color="#3b82f6" />
               </View>
-              <Text style={styles.gridCardLabel}>Permisos</Text>
+              <Text style={styles.gridCardLabel}>Por aprobar</Text>
             </View>
             <Text style={styles.gridNumber}>{pendingLeaves}</Text>
-            <Text style={styles.gridSubtext}>pendientes</Text>
+            <Text style={styles.gridSubtext}>novedades pendientes</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

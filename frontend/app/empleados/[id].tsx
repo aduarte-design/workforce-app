@@ -192,7 +192,7 @@ export default function EmployeeDetailScreen() {
 
     showAlert(
       `Eliminar ${roleWord}`,
-      `Antes de eliminar a ${employee.name} se descargará automáticamente un PDF con todo su expediente (datos personales, permisos y likes). Esta acción es irreversible.`,
+      `Antes de eliminar a ${employee.name} se descargará automáticamente un PDF con todo su expediente (datos personales, novedades y likes). Esta acción es irreversible.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
